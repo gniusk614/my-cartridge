@@ -1,0 +1,102 @@
+{
+  "schema_version": "1.0.0",
+  "pack_id": "demo_snowy_rescue",
+  "pack_revision": 1,
+  "meta": {
+    "title": "첫 만남의 카페 거리",
+    "locale": "ko-KR",
+    "duration_minutes": 3
+  },
+  "characters": [
+    {
+      "id": "hero",
+      "name": "서윤",
+      "role": "player",
+      "sprite_key": "hero_base"
+    },
+    {
+      "id": "missing",
+      "name": "민재",
+      "role": "missing",
+      "sprite_key": "missing_base"
+    }
+  ],
+  "clues": [
+    {
+      "id": "clue_cafe",
+      "name": "카페 영수증",
+      "text": "2023.04.15 / 작은 카페 / 비가 많이 오던 저녁",
+      "memory": "그날 너와 조금이라도 더 같이 있고 싶었어.",
+      "asset_key": "clue_receipt"
+    }
+  ],
+  "chapters": [
+    {
+      "id": "stage_01",
+      "title": "첫 만남의 카페 거리",
+      "intro": "사라진 너를 찾아 눈 덮인 거리에 왔다.\n길을 막은 장난꾸러기들을 물리치고 우리의 기억을 찾아보자.",
+      "template": "winter_street",
+      "mechanics": [
+        "brawler",
+        "collect"
+      ],
+      "enemies": [
+        {
+          "id": "enemy_1",
+          "type": "street_thug",
+          "position": {
+            "x": 220,
+            "y": 126
+          },
+          "trigger_x": 145,
+          "after": []
+        },
+        {
+          "id": "enemy_2",
+          "type": "street_thug",
+          "position": {
+            "x": 375,
+            "y": 138
+          },
+          "trigger_x": 245,
+          "after": [
+            "enemy_1"
+          ]
+        }
+      ],
+      "objectives": [
+        {
+          "id": "defeat_street_thug",
+          "type": "defeat_count",
+          "target": "street_thug",
+          "count": 2,
+          "depends_on": [],
+          "position": {
+            "x": 680,
+            "y": 128
+          }
+        },
+        {
+          "id": "find_memory",
+          "type": "collect_clue",
+          "target": "clue_cafe",
+          "count": 1,
+          "depends_on": [
+            "defeat_street_thug"
+          ],
+          "position": {
+            "x": 680,
+            "y": 128
+          }
+        }
+      ]
+    }
+  ],
+  "ending": {
+    "letter": "추운 겨울에도 너와 함께라면 따뜻해.\n우리가 함께 걸었던 모든 길을 기억해.\n앞으로도 너와 함께 걸을게.",
+    "music_asset_key": "demo_ending"
+  },
+  "coop": {
+    "enabled": false
+  }
+}

@@ -1,0 +1,13 @@
+.DS_Store
+game/.godot/
+build/
+*.tmp
+.venv/
+__pycache__/
+.env
+.env.*
+# Supplied planning documents and internal review notes stay local.
+docs/01_PRODUCT_PRD.md
+docs/02_TECHNICAL_DESIGN.md
+docs/03_IMPLEMENTATION_ROADMAP.md
+docs/REVIEW_AND_NEXT_STEPS.md

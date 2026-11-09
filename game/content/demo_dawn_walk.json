@@ -1,0 +1,102 @@
+{
+  "schema_version": "1.0.0",
+  "pack_id": "demo_dawn_walk",
+  "pack_revision": 1,
+  "meta": {
+    "title": "해 뜨기 전의 약속",
+    "locale": "ko-KR",
+    "duration_minutes": 3
+  },
+  "characters": [
+    {
+      "id": "hero",
+      "name": "서윤",
+      "role": "player",
+      "sprite_key": "hero_base"
+    },
+    {
+      "id": "missing",
+      "name": "민재",
+      "role": "missing",
+      "sprite_key": "missing_base"
+    }
+  ],
+  "clues": [
+    {
+      "id": "clue_photo",
+      "name": "일출 사진",
+      "text": "겨울 바다에서 함께 기다린 첫 햇살.",
+      "memory": "다음 해도 함께 보자던 약속을 기억해.",
+      "asset_key": "clue_photo"
+    }
+  ],
+  "chapters": [
+    {
+      "id": "stage_01",
+      "title": "해 뜨기 전의 약속",
+      "intro": "사라진 너를 찾아 눈 덮인 거리에 왔다.\n길을 막은 장난꾸러기들을 물리치고 우리의 기억을 찾아보자.",
+      "template": "winter_street",
+      "mechanics": [
+        "brawler",
+        "collect"
+      ],
+      "enemies": [
+        {
+          "id": "enemy_1",
+          "type": "bruiser",
+          "position": {
+            "x": 220,
+            "y": 126
+          },
+          "trigger_x": 145,
+          "after": []
+        },
+        {
+          "id": "enemy_2",
+          "type": "bruiser",
+          "position": {
+            "x": 375,
+            "y": 138
+          },
+          "trigger_x": 245,
+          "after": [
+            "enemy_1"
+          ]
+        }
+      ],
+      "objectives": [
+        {
+          "id": "defeat_bruiser",
+          "type": "defeat_count",
+          "target": "bruiser",
+          "count": 2,
+          "depends_on": [],
+          "position": {
+            "x": 820,
+            "y": 128
+          }
+        },
+        {
+          "id": "find_memory",
+          "type": "collect_clue",
+          "target": "clue_photo",
+          "count": 1,
+          "depends_on": [
+            "defeat_bruiser"
+          ],
+          "position": {
+            "x": 820,
+            "y": 128
+          }
+        }
+      ]
+    }
+  ],
+  "ending": {
+    "letter": "추운 겨울에도 너와 함께라면 따뜻해.\n우리가 함께 걸었던 모든 길을 기억해.\n앞으로도 너와 함께 걸을게.",
+    "music_asset_key": "demo_ending"
+  },
+  "coop": {
+    "enabled": false
+  }
+}

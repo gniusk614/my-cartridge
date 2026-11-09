@@ -1,0 +1,383 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://my-cartridge.local/schemas/game_pack.schema.json",
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "enum": [
+        "1.0.0"
+      ]
+    },
+    "pack_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "pattern": "^[a-z][a-z0-9_]*$"
+    },
+    "pack_revision": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 9999
+    },
+    "meta": {
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "locale": {
+          "type": "string",
+          "enum": [
+            "ko-KR"
+          ]
+        },
+        "duration_minutes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 15
+        }
+      },
+      "required": [
+        "title",
+        "locale",
+        "duration_minutes"
+      ],
+      "additionalProperties": false
+    },
+    "characters": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64,
+            "pattern": "^[a-z][a-z0-9_]*$"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 40
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "player",
+              "missing"
+            ]
+          },
+          "sprite_key": {
+            "type": "string",
+            "enum": [
+              "hero_base",
+              "missing_base"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "role",
+          "sprite_key"
+        ],
+        "additionalProperties": false
+      },
+      "minItems": 2,
+      "maxItems": 2
+    },
+    "clues": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64,
+            "pattern": "^[a-z][a-z0-9_]*$"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80
+          },
+          "text": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          },
+          "memory": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          },
+          "asset_key": {
+            "type": "string",
+            "enum": [
+              "clue_receipt",
+              "clue_umbrella",
+              "clue_photo"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "text",
+          "memory",
+          "asset_key"
+        ],
+        "additionalProperties": false
+      },
+      "minItems": 1,
+      "maxItems": 4
+    },
+    "chapters": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64,
+            "pattern": "^[a-z][a-z0-9_]*$"
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80
+          },
+          "intro": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          },
+          "template": {
+            "type": "string",
+            "enum": [
+              "winter_street"
+            ]
+          },
+          "mechanics": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "brawler",
+                "collect"
+              ]
+            },
+            "minItems": 2,
+            "maxItems": 2
+          },
+          "enemies": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 64,
+                  "pattern": "^[a-z][a-z0-9_]*$"
+                },
+                "type": {
+                  "type": "string",
+                  "enum": [
+                    "street_thug",
+                    "bruiser"
+                  ]
+                },
+                "position": {
+                  "type": "object",
+                  "properties": {
+                    "x": {
+                      "type": "number",
+                      "minimum": 24,
+                      "maximum": 936
+                    },
+                    "y": {
+                      "type": "number",
+                      "minimum": 104,
+                      "maximum": 156
+                    }
+                  },
+                  "required": [
+                    "x",
+                    "y"
+                  ],
+                  "additionalProperties": false
+                },
+                "trigger_x": {
+                  "type": "number",
+                  "minimum": 24,
+                  "maximum": 920
+                },
+                "after": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 64,
+                    "pattern": "^[a-z][a-z0-9_]*$"
+                  },
+                  "minItems": 0,
+                  "maxItems": 8
+                }
+              },
+              "required": [
+                "id",
+                "type",
+                "position",
+                "trigger_x",
+                "after"
+              ],
+              "additionalProperties": false
+            },
+            "minItems": 1,
+            "maxItems": 8
+          },
+          "objectives": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 64,
+                  "pattern": "^[a-z][a-z0-9_]*$"
+                },
+                "type": {
+                  "type": "string",
+                  "enum": [
+                    "defeat_count",
+                    "collect_clue"
+                  ]
+                },
+                "target": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 64,
+                  "pattern": "^[a-z][a-z0-9_]*$"
+                },
+                "count": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 8
+                },
+                "depends_on": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 64,
+                    "pattern": "^[a-z][a-z0-9_]*$"
+                  },
+                  "minItems": 0,
+                  "maxItems": 8
+                },
+                "position": {
+                  "type": "object",
+                  "properties": {
+                    "x": {
+                      "type": "number",
+                      "minimum": 24,
+                      "maximum": 936
+                    },
+                    "y": {
+                      "type": "number",
+                      "minimum": 104,
+                      "maximum": 156
+                    }
+                  },
+                  "required": [
+                    "x",
+                    "y"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "id",
+                "type",
+                "target",
+                "count",
+                "depends_on",
+                "position"
+              ],
+              "additionalProperties": false
+            },
+            "minItems": 2,
+            "maxItems": 8
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "intro",
+          "template",
+          "mechanics",
+          "enemies",
+          "objectives"
+        ],
+        "additionalProperties": false
+      },
+      "minItems": 1,
+      "maxItems": 1
+    },
+    "ending": {
+      "type": "object",
+      "properties": {
+        "letter": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1500
+        },
+        "music_asset_key": {
+          "type": "string",
+          "enum": [
+            "demo_ending"
+          ]
+        }
+      },
+      "required": [
+        "letter",
+        "music_asset_key"
+      ],
+      "additionalProperties": false
+    },
+    "coop": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "enum": [
+            false
+          ]
+        }
+      },
+      "required": [
+        "enabled"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "schema_version",
+    "pack_id",
+    "pack_revision",
+    "meta",
+    "characters",
+    "clues",
+    "chapters",
+    "ending",
+    "coop"
+  ],
+  "additionalProperties": false
+}

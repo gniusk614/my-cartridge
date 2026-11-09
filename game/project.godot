@@ -1,0 +1,30 @@
+config_version=5
+
+[application]
+config/name="MY CARTRIDGE — Snowy Rescue"
+run/main_scene="res://scenes/GameRoot.tscn"
+config/features=PackedStringArray("4.7", "GL Compatibility")
+
+[autoload]
+EventBus="*res://scripts/core/event_bus.gd"
+GameSession="*res://scripts/core/game_session.gd"
+PackLoader="*res://scripts/data/pack_loader.gd"
+
+[display]
+window/size/viewport_width=320
+window/size/viewport_height=180
+window/size/window_width_override=1280
+window/size/window_height_override=720
+window/stretch/mode="canvas_items"
+window/stretch/aspect="keep"
+
+[rendering]
+renderer/rendering_method="gl_compatibility"
+renderer/rendering_method.mobile="gl_compatibility"
+textures/default_filters/use_nearest_mipmap_filter=false
+textures/canvas_textures/default_texture_filter=0
+2d/snap/snap_2d_transforms_to_pixel=true
+environment/defaults/default_clear_color=Color(0.035, 0.055, 0.12, 1)
+
+[physics]
+common/physics_ticks_per_second=60

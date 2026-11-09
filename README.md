@@ -1,2 +1,82 @@
-# my-cartridge
-MY CARTRIDGE — Godot story-action game prototype with jumping, balcony exploration and cafe interiors
+# MY CARTRIDGE 첫 플레이 빌드
+
+사연을 전투와 기억 수집으로 풀어내는 선물 게임의 Godot 기술 시제품입니다. 카페 거리에서 적을 물리치고 단서를 읽은 뒤, 오른쪽 카페에 들어가 책상 앞에서 편지를 읽습니다. 상자에서 점프해 난간 위를 탐색할 수도 있습니다. 2026년 11월 10일 구현본입니다.
+
+## 바로 실행
+
+**휴대폰에서 플레이:** https://gniusk614.github.io/my-cartridge/ 를 열고 화면을 가로로 돌립니다. 왼쪽 패드로 이동하고 오른쪽 점프·앉기·공격·살피기 버튼을 사용합니다.
+
+macOS에서 `실행.command`를 열거나 다음 명령을 실행합니다. 이 작업 공간에서 받은 공식 Godot 4.7.2 엔진을 자동으로 찾습니다. 다른 컴퓨터에서는 Godot 4.7.2를 설치하고 `game/project.godot`를 열어 F6 대신 **F5 프로젝트 실행**을 누르세요.
+
+```bash
+bash tools/godot.sh
+```
+
+엔진을 직접 지정할 수도 있습니다.
+
+```bash
+GODOT_BIN=/Applications/Godot.app/Contents/MacOS/Godot bash tools/godot.sh
+```
+
+| 조작 | 키보드 | 화면 버튼 |
+|---|---|---|
+| 이동 | WASD 또는 방향키 | 왼쪽 방향 패드 |
+| 공격과 3타 연계 | J 반복 입력 | 공격 |
+| 점프 | Space | 점프 |
+| 앉기와 느린 이동 | K 또는 Ctrl 누르고 있기 | 앉기 누르고 있기 |
+| 단서·출입·편지 | 근처에서 E | 살피기 |
+| 일시정지 | Esc | 오른쪽 위 Ⅱ |
+
+팩을 고르고 `시작 / 이어하기`를 누릅니다. `새로 시작`은 선택한 팩의 진행을 새로 시작합니다. 적을 모두 물리친 다음 빛나는 단서를 찾으세요. 오른쪽 카페 문에서 E로 들어가고 창가 책상에서 E로 편지를 읽습니다. 내부 아래쪽 문에서 E를 누르면 거리로 돌아갑니다. 단서를 모으기 전에도 카페를 둘러볼 수 있습니다.
+
+거리 중간의 상자와 난간은 위쪽 길(y 104~121)에 있습니다. 상자 왼쪽에서 위쪽 길로 맞춘 뒤 오른쪽으로 점프해 상자 위에 착지하고, 다시 오른쪽으로 점프하면 난간에 올라갑니다. 난간은 지면에서 한 번의 점프로 닿지 않는 높이입니다. 난간 위를 걷거나 아래 방향으로 걸어 내려올 수 있습니다. 앉기는 자세와 이동 속도를 바꾸며 무적·회피 효과를 주지 않습니다.
+
+## 들어 있는 기능
+
+- 320×180 기준, Compatibility 렌더러, nearest 픽셀 표현, 가로 스크롤과 상하 깊이 이동.
+- 3타 연계, 활성 프레임 Area2D 공격 판정, 공격별 중복 타격 방지, 방향·깊이 검사, 피격·넉백·무적 시간.
+- 독립 높이축 점프와 중력, 상자·난간 착지와 높은 발판의 측면 충돌, 높이 차이를 반영한 타격 검사, 앉기·느린 이동.
+- 일반 적과 느리고 체력이 높은 적, 데이터 기반 등장 위치·접근 트리거·순차 등장.
+- 처치 → 단서 생성 → 상호작용 → 회상 → 출구 → 편지와 오리지널 임시 음악.
+- 카페 내부 출입, 실내외 경계·카메라 전환, 외부 적 정지·복원, 단서 수집 이후 내부 편지 엔딩.
+- 팩별 로컬 저장, 중복 수집 방지, 사망 후 기억과 처치 기록 유지, 일시정지·기억 앨범.
+- 스키마와 ID 참조·의존 순환·달성 불가능 목표 검사. 팩에 파일 경로나 코드를 넣지 않습니다.
+- 같은 실행 코드로 세 샘플 팩을 선택해 플레이. 적 구성·등장 의존성과 단서 위치에 차이가 있습니다.
+
+## 웹 빌드
+
+`web`에 실행 가능한 싱글 스레드 웹 내보내기가 있습니다. `index.html`을 파일로 직접 열면 WebAssembly 로딩이 실패하므로 HTTP 서버를 사용하세요.
+
+```bash
+python3 -m http.server 8765 --bind 127.0.0.1 --directory web
+```
+
+브라우저에서 `http://127.0.0.1:8765`로 접속합니다. 재빌드에는 같은 버전의 Godot Web export templates가 필요합니다.
+
+```bash
+mkdir -p build/web
+bash tools/godot.sh --headless --export-release Web ../build/web/index.html
+python3 tools/prepare_web.py
+```
+
+## 검증 명령
+
+```bash
+bash tools/godot.sh --headless --editor --import --quit
+bash tools/godot.sh --headless --fixed-fps 60 --script res://tests/test_runner.gd
+python3 tools/check_content.py  # jsonschema 패키지 필요
+```
+
+테스트는 전용 `user://mc_automated_tests` 폴더만 사용합니다. 게임의 일반 저장 폴더를 덮어쓰지 않습니다. 봇 완주는 실제 이동 입력, 물리 프레임, Area2D 판정, 적 AI, 단서 상호작용을 통과합니다. 자동 검사는 재미·터치 조작감·실기기 성능을 보증하지 않습니다.
+
+## 데이터 수정
+
+`schemas/game_pack.schema.json`이 정규 스키마이며 `examples/*.json`이 편집 기준 샘플입니다. 수정 후 각각 `game/content`의 동일 이름 파일에도 복사하고 `check_content.py`와 Godot 검사를 실행합니다. 지원 팩 ID는 `pack_loader.gd`의 허용 목록에 등록합니다. `docs/DATA_CONTRACT.md`에 필드와 진행 복원 규칙을 설명했습니다.
+
+## 남은 작업
+
+이 빌드는 원문 P0의 시작점입니다. 플레이 분량 2~4분, 타격감에 대한 사람의 평가, iPhone Safari·Android Chrome의 동시 터치·음향·복귀·저장 유지 테스트는 미통과 상태입니다. 전투 아트는 원본 코드로 그린 임시 도형 캐릭터이며, 전체 스프라이트 애니메이션과 최종 음원은 교체해야 합니다. 회복 소품·회피·다중 챕터·협동·플랫폼·결제·AI 제작은 아직 구현하지 않았습니다.
+
+웹 저장은 브라우저 데이터 삭제나 사생활 보호 모드에서 유지되지 않을 수 있습니다. 저장 개정이 달라지면 이 버전은 새 진행으로 시작합니다. 개정 간 마이그레이션은 팩 배포 전에 추가해야 합니다.
+
+모바일 테스트와 배포 방법은 `docs/DEVELOPMENT.md`, 실제 검증 기록은 `docs/VALIDATION.md`에서 확인합니다.
