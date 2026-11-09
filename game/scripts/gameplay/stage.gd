@@ -20,7 +20,8 @@ func _draw() -> void:
 	if indoors:
 		draw_interior()
 		return
-	draw_rect(Rect2(0, 0, 960, 180), Color("111e38"))
+	var view_height := maxf(180, get_viewport().get_visible_rect().size.y)
+	draw_rect(Rect2(0, 0, 960, view_height), Color("111e38"))
 	draw_circle(Vector2(265, 27), 13, Color("f6dfb2"))
 	for i in 18:
 		var x := float(i * 58)
@@ -35,7 +36,7 @@ func _draw() -> void:
 		draw_rect(Rect2(x + 12, 66, 28, 29), Color("edbe85"))
 		draw_rect(Rect2(x + 48, 66, 28, 29), Color("e3b07f"))
 		draw_line(Vector2(x + 26, 66), Vector2(x + 26, 95), Color("6f5661"), 2)
-	draw_rect(Rect2(0, 101, 960, 79), Color("b1c5d5"))
+	draw_rect(Rect2(0, 101, 960, view_height - 101), Color("b1c5d5"))
 	draw_rect(Rect2(0, 109, 960, 51), Color("7a93ac"))
 	for i in 60:
 		draw_rect(Rect2((i * 47) % 960, 116 + (i * 13) % 43, 8, 1), Color("a7bfce"))
@@ -89,13 +90,14 @@ func draw_platform(surface: Dictionary) -> void:
 		draw_string(ThemeDB.fallback_font, Vector2(396, 47), "SNOW TERRACE", HORIZONTAL_ALIGNMENT_LEFT, -1, 8, Color("ffe6a9"))
 
 func draw_interior() -> void:
-	draw_rect(Rect2(0, 0, 320, 180), Color("372e40"))
-	draw_rect(Rect2(0, 14, 320, 91), Color("755669"))
+	var view_size := get_viewport().get_visible_rect().size.max(Vector2(320, 180))
+	draw_rect(Rect2(Vector2.ZERO, view_size), Color("372e40"))
+	draw_rect(Rect2(0, 14, view_size.x, 91), Color("755669"))
 	for i in 16:
 		draw_line(Vector2(i * 22, 14), Vector2(i * 22, 105), Color("684c60"), 1)
-	draw_rect(Rect2(0, 101, 320, 79), Color("bd9271"))
-	for y in range(110, 180, 12):
-		draw_line(Vector2(0, y), Vector2(320, y), Color("a77b61"), 1)
+	draw_rect(Rect2(0, 101, view_size.x, view_size.y - 101), Color("bd9271"))
+	for y in range(110, int(view_size.y), 12):
+		draw_line(Vector2(0, y), Vector2(view_size.x, y), Color("a77b61"), 1)
 	draw_rect(Rect2(20, 38, 82, 53), Color("d7bb9b"))
 	draw_rect(Rect2(24, 42, 74, 45), Color("20334e"))
 	for x in range(30, 95, 13):

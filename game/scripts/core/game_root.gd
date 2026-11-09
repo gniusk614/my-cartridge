@@ -17,6 +17,7 @@ var muted := false
 var checkpoint_clock := 0.0
 var indoors := false
 var street_return := Vector2(884, 134)
+var portrait_callback
 
 func _ready() -> void:
 	configure_input()
@@ -26,6 +27,7 @@ func _ready() -> void:
 	camera = Camera2D.new()
 	camera.position = Vector2(160, 90)
 	add_child(camera)
+	get_viewport().size_changed.connect(update_camera)
 	music = AudioStreamPlayer.new()
 	music.stream = preload("res://assets/audio/demo_ending.wav")
 	music.volume_db = -7
@@ -33,7 +35,13 @@ func _ready() -> void:
 		if GameSession.state == "ENDING": music.play())
 	add_child(music)
 	EventBus.actor_defeated.connect(on_defeat)
+	if OS.has_feature("web"):
+		portrait_callback = JavaScriptBridge.create_callback(on_browser_portrait)
+		JavaScriptBridge.get_interface("window").myCartridgeOnPortrait = portrait_callback
 	show_title()
+
+func on_browser_portrait(_arguments: Array) -> void:
+	pause_game()
 
 func configure_input() -> void:
 	var bindings := {"move_left": [KEY_A, KEY_LEFT], "move_right": [KEY_D, KEY_RIGHT],
@@ -108,7 +116,7 @@ func build_stage() -> void:
 	quest.configure(GameSession.pack.chapters[0], GameSession.progress)
 	spawned.clear()
 	checkpoint_clock = 0
-	camera.position = Vector2(160, 90)
+	update_camera()
 
 func play() -> void:
 	ui.close_modal()
@@ -125,7 +133,7 @@ func _process(delta: float) -> void:
 		ui.clear_modal("잠깐 쉬었다 다시 가자", "찾은 기억은 그대로 남아 있어요.\n체력을 회복하고 거리 입구에서 다시 시작합니다.")
 		ui.button("다시 도전", retry)
 		return
-	camera.position.x = 160 if indoors else clampf(roundf(player.position.x), 160, 800)
+	update_camera()
 	if not indoors: spawn_enemies()
 	stage.clue_positions = [] if indoors else quest.available_clues()
 	stage.exit_active = quest.is_complete()
@@ -174,7 +182,7 @@ func enter_cafe() -> void:
 	player.surfaces = []
 	player.arena = Rect2(24, 104, 272, 52)
 	player.position = Vector2(160, 136)
-	camera.position.x = 160
+	update_camera()
 	for actor in actors.get_children():
 		if actor == player: continue
 		actor.hide()
@@ -193,7 +201,17 @@ func leave_cafe() -> void:
 		if actor == player: continue
 		actor.show()
 		actor.set_physics_process(true)
-	camera.position.x = clampf(roundf(player.position.x), 160, 800)
+	update_camera()
+
+func update_camera() -> void:
+	if not is_instance_valid(camera): return
+	var size := get_viewport().get_visible_rect().size
+	var half_width := size.x * 0.5
+	camera.position.y = size.y * 0.5
+	if indoors or not is_instance_valid(player):
+		camera.position.x = half_width
+	else:
+		camera.position.x = clampf(roundf(player.position.x), half_width, maxf(half_width, 960 - half_width))
 
 func spawn_enemies() -> void:
 	for data in GameSession.pack.chapters[0].enemies:

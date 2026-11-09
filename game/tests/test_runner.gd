@@ -272,6 +272,28 @@ func run() -> void:
 	game.interact_nearby()
 	if outside_enemy != null:
 		expect(outside_enemy.is_physics_processing(), "outside enemy resumes after exit")
+	# Real window resize: expanded game viewport and edge-anchored touch controls.
+	var original_window_size := root.size
+	root.size = Vector2i(1950, 900)
+	for i in 3: await process_frame
+	var expanded: Vector2 = root.get_visible_rect().size
+	expect(expanded.x > 320 and absf(expanded.y - 180) < 1, "wide window expands horizontal view without letterboxing")
+	for item in game.ui.touch_layout:
+		var rect := Rect2(item.button.position, Vector2(28, 28))
+		expect(rect.position.x >= 0 and rect.end.x <= expanded.x and rect.position.y >= 0 and rect.end.y <= expanded.y, "touch control stays on resized screen: " + str(item.button.action))
+	expect(absf(game.ui.modal.position.x + game.ui.modal.size.x * 0.5 - expanded.x * 0.5) < 1, "modal stays centered on wide screen")
+	game.player.position.x = 24
+	game.update_camera()
+	expect(absf(game.camera.position.x - expanded.x * 0.5) < 1, "wide camera keeps stage left edge")
+	game.player.position.x = 936
+	game.update_camera()
+	expect(absf(game.camera.position.x + expanded.x * 0.5 - 960) < 1, "wide camera keeps stage right edge")
+	game.ui.layout_for_size(Vector2(390, 180), {"left": 47, "right": 47, "bottom": 34, "width": 844, "height": 390})
+	for item in game.ui.touch_layout:
+		expect(item.button.position.x >= 47.0 * 390 / 844 and item.button.position.x + 28 <= 390 - 47.0 * 390 / 844, "touch control clears landscape notch")
+	root.size = original_window_size
+	for i in 3: await process_frame
+	game.ui.apply_layout()
 	print("RESULT: %d checks, %d failures" % [checks, failures])
 	game.free()
 	await process_frame

@@ -9,6 +9,8 @@ var touches: Node2D
 var hp: ColorRect
 var hp_fill: ColorRect
 var ui_theme: Theme
+var pause_button: Button
+var touch_layout: Array = []
 
 func _ready() -> void:
 	layer = 10
@@ -38,12 +40,11 @@ func _ready() -> void:
 	hp_fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	hp.add_child(hp_fill)
 	base.add_child(hp)
-	var pause := Button.new()
-	pause.text = "Ⅱ"
-	pause.position = Vector2(285, 5)
-	pause.size = Vector2(28, 24)
-	pause.pressed.connect(func(): root.pause_game())
-	base.add_child(pause)
+	pause_button = Button.new()
+	pause_button.text = "Ⅱ"
+	pause_button.size = Vector2(28, 24)
+	pause_button.pressed.connect(func(): root.pause_game())
+	base.add_child(pause_button)
 	status = Label.new()
 	status.position = Vector2(82, 164)
 	status.size = Vector2(157, 14)
@@ -71,7 +72,35 @@ func _ready() -> void:
 	body.add_theme_constant_override("separation", 4)
 	scroll.add_child(body)
 	create_touches()
+	get_viewport().size_changed.connect(apply_layout)
+	apply_layout()
 	EventBus.save_failed.connect(func(message): status.text = message)
+
+func apply_layout() -> void:
+	var safe: Dictionary = {}
+	if OS.has_feature("web"):
+		var raw = JavaScriptBridge.eval("JSON.stringify(window.myCartridgeSafeArea || {})")
+		if raw is String:
+			var parsed = JSON.parse_string(raw)
+			if parsed is Dictionary: safe = parsed
+	layout_for_size(get_viewport().get_visible_rect().size, safe)
+
+func layout_for_size(size: Vector2, safe: Dictionary = {}) -> void:
+	var scale_x := size.x / maxf(1, float(safe.get("width", size.x)))
+	var scale_y := size.y / maxf(1, float(safe.get("height", size.y)))
+	var left := maxf(8, float(safe.get("left", 0)) * scale_x + 3)
+	var right := maxf(13, float(safe.get("right", 0)) * scale_x + 3)
+	var top := maxf(5, float(safe.get("top", 0)) * scale_y + 3)
+	var bottom := maxf(6, float(safe.get("bottom", 0)) * scale_y + 3)
+	hud.position = Vector2(left, top)
+	hp.position = Vector2(left, top + 28)
+	pause_button.position = Vector2(size.x - right - 28, top)
+	status.position = Vector2(left + 74, size.y - bottom - 14)
+	status.size.x = maxf(80, size.x - left - right - 160)
+	modal.position = (size - modal.size) * 0.5
+	for item in touch_layout:
+		var offset := Vector2(left - 3 if item.left_side else size.x - 320 - (right - 13), size.y - 180 - bottom)
+		item.button.position = item.origin + offset
 
 func create_touches() -> void:
 	touches = Node2D.new()
@@ -93,6 +122,7 @@ func create_touches() -> void:
 		button.texture_pressed = button.texture_normal
 		# Shape is centered at texture center; place button around intended center.
 		button.position -= Vector2(14, 14)
+		touch_layout.append({"button": button, "origin": button.position, "left_side": str(spec[0]).begins_with("move_")})
 		touches.add_child(button)
 		var label := Label.new()
 		label.theme = ui_theme

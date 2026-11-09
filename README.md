@@ -4,7 +4,7 @@
 
 ## 바로 실행
 
-**휴대폰에서 플레이:** https://gniusk614.github.io/my-cartridge/ 를 열고 화면을 가로로 돌립니다. 왼쪽 패드로 이동하고 오른쪽 점프·앉기·공격·살피기 버튼을 사용합니다.
+**휴대폰에서 플레이:** https://gniusk614.github.io/my-cartridge/ 를 열고 `가로 전체화면으로 시작`을 누릅니다. 자동 회전이 지원되지 않으면 기기를 가로로 돌려 주세요. iPhone은 Safari의 `공유 → 홈 화면에 추가`로 실행하면 주소줄 없이 플레이할 수 있습니다. 왼쪽 패드로 이동하고 오른쪽 점프·앉기·공격·살피기 버튼을 사용합니다.
 
 macOS에서 `실행.command`를 열거나 다음 명령을 실행합니다. 이 작업 공간에서 받은 공식 Godot 4.7.2 엔진을 자동으로 찾습니다. 다른 컴퓨터에서는 Godot 4.7.2를 설치하고 `game/project.godot`를 열어 F6 대신 **F5 프로젝트 실행**을 누르세요.
 
@@ -33,7 +33,7 @@ GODOT_BIN=/Applications/Godot.app/Contents/MacOS/Godot bash tools/godot.sh
 
 ## 들어 있는 기능
 
-- 320×180 기준, Compatibility 렌더러, nearest 픽셀 표현, 가로 스크롤과 상하 깊이 이동.
+- 320×180 기준의 가변 화면 확장, Compatibility 렌더러, nearest 픽셀 표현, 가로 스크롤과 상하 깊이 이동. 가로 전체화면 시작·노치 안전영역·세로 전환 안내.
 - 3타 연계, 활성 프레임 Area2D 공격 판정, 공격별 중복 타격 방지, 방향·깊이 검사, 피격·넉백·무적 시간.
 - 독립 높이축 점프와 중력, 상자·난간 착지와 높은 발판의 측면 충돌, 높이 차이를 반영한 타격 검사, 앉기·느린 이동.
 - 일반 적과 느리고 체력이 높은 적, 데이터 기반 등장 위치·접근 트리거·순차 등장.
@@ -65,6 +65,7 @@ python3 tools/prepare_web.py
 bash tools/godot.sh --headless --editor --import --quit
 bash tools/godot.sh --headless --fixed-fps 60 --script res://tests/test_runner.gd
 python3 tools/check_content.py  # jsonschema 패키지 필요
+node --test tools/test_web_shell.mjs
 ```
 
 테스트는 전용 `user://mc_automated_tests` 폴더만 사용합니다. 게임의 일반 저장 폴더를 덮어쓰지 않습니다. 봇 완주는 실제 이동 입력, 물리 프레임, Area2D 판정, 적 AI, 단서 상호작용을 통과합니다. 자동 검사는 재미·터치 조작감·실기기 성능을 보증하지 않습니다.
@@ -79,4 +80,4 @@ python3 tools/check_content.py  # jsonschema 패키지 필요
 
 웹 저장은 브라우저 데이터 삭제나 사생활 보호 모드에서 유지되지 않을 수 있습니다. 저장 개정이 달라지면 이 버전은 새 진행으로 시작합니다. 개정 간 마이그레이션은 팩 배포 전에 추가해야 합니다.
 
-모바일 테스트와 배포 방법은 `docs/DEVELOPMENT.md`, 실제 검증 기록은 `docs/VALIDATION.md`에서 확인합니다.
+모바일 테스트와 배포 방법은 `docs/DEVELOPMENT.md`, 전체화면 동작은 `docs/FULLSCREEN.md`, 실제 검증 기록은 `docs/VALIDATION.md`에서 확인합니다.

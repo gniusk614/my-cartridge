@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#101b30">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="MY CARTRIDGE">
+  <title>$GODOT_PROJECT_NAME</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="icon-180.png">
+  <link rel="stylesheet" href="viewport.css">
+  $GODOT_HEAD_INCLUDE
+</head>
+<body>
+  <main id="game-shell">
+    <canvas id="canvas" tabindex="0" aria-label="MY CARTRIDGE 게임"></canvas>
+    <section id="launch" class="screen" aria-labelledby="launch-title">
+      <div class="launch-content">
+        <p class="eyebrow">SNOWY RESCUE</p>
+        <h1 id="launch-title">MY CARTRIDGE</h1>
+        <p>휴대폰을 가로로 돌리고, 기억을 찾아 출발하세요.</p>
+        <p id="loading-status" role="status">게임을 불러오고 있어요…</p>
+        <progress id="loading-progress" aria-label="게임 로딩"></progress>
+        <button id="launch-fullscreen" disabled>가로 전체화면으로 시작</button>
+        <button id="launch-windowed" class="secondary" disabled>현재 화면으로 시작</button>
+        <p id="fullscreen-help" class="small"></p>
+      </div>
+    </section>
+    <section id="rotate-screen" class="screen" hidden aria-label="가로 화면 안내">
+      <div class="launch-content">
+        <div class="rotate-icon" aria-hidden="true">↻</div>
+        <h2>휴대폰을 가로로 돌려주세요</h2>
+        <p>세로 방향 잠금이 켜져 있다면 해제해 주세요.</p>
+        <button id="rotate-fullscreen">가로 전체화면 전환</button>
+        <p id="rotate-help" class="small"></p>
+      </div>
+    </section>
+    <button id="fullscreen-toggle" hidden aria-label="게임 전체화면 전환">전체화면</button>
+    <div id="safe-area-probe" aria-hidden="true"></div>
+  </main>
+  <noscript>게임을 실행하려면 JavaScript를 켜 주세요.</noscript>
+  <script src="$GODOT_URL"></script>
+  <script>
+const GODOT_CONFIG = $GODOT_CONFIG;
+const GODOT_THREADS_ENABLED = $GODOT_THREADS_ENABLED;
+  </script>
+  <script src="viewport.js"></script>
+</body>
+</html>

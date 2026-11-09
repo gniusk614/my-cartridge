@@ -2,6 +2,7 @@
 import argparse
 import hashlib
 import json
+import re
 import shutil
 from pathlib import Path
 
@@ -56,9 +57,36 @@ def prepare_site():
             (site / name).unlink(missing_ok=True)
     assets = {}
     for path in sorted(export.iterdir()):
-        if path.is_file():
+        if path.is_file() and path.name.startswith("index."):
             shutil.copy2(path, site / path.name)
             assets[path.name] = hashlib.sha256(path.read_bytes()).hexdigest()
+    # HTML and game data must not reuse a cached pack from the previous release.
+    pack_name = "game-" + assets["index.pck"][:12] + ".pck"
+    (site / "index.pck").rename(site / pack_name)
+    assets[pack_name] = assets.pop("index.pck")
+    html = (site / "index.html").read_text()
+    pattern = r"const GODOT_CONFIG = (\{[^\n]+\});"
+    match = re.search(pattern, html)
+    if not match:
+        raise SystemExit("Missing Godot export configuration")
+    config = json.loads(match[1])
+    config["mainPack"] = pack_name
+    config["fileSizes"][pack_name] = config["fileSizes"].pop("index.pck")
+    html = re.sub(pattern, lambda _: "const GODOT_CONFIG = " + json.dumps(config, separators=(",", ":")) + ";", html)
+    for path in sorted((ROOT / "game/web/static").iterdir()):
+        if not path.is_file() or path.suffix in (".import", ".uid"):
+            continue
+        name = path.name
+        checksum = hashlib.sha256(path.read_bytes()).hexdigest()
+        if path.suffix in (".js", ".css"):
+            name = f"{path.stem}-{checksum[:12]}{path.suffix}"
+            html = html.replace(f'"{path.name}"', f'"{name}"')
+        shutil.copy2(path, site / name)
+        shutil.copy2(path, export / path.name)
+        assets[name] = checksum
+    html = "\n".join(line.rstrip() for line in html.splitlines()) + "\n"
+    (site / "index.html").write_text(html)
+    assets["index.html"] = hashlib.sha256((site / "index.html").read_bytes()).hexdigest()
     (site / ".nojekyll").touch()
     (site / "build-info.json").write_text(json.dumps({
         "engine": "4.7.2.stable", "source_sha256": source_digest(), "assets": assets
