@@ -59,3 +59,15 @@ GitHub Actions는 공개 내보내기 해시·웹 셸·스키마 검사에 더�
 - 모바일 FPS·입력 지연과 사람의 전투 재미·플레이 시간.
 
 참고: [Playwright 모바일 에뮬레이션](https://playwright.dev/docs/emulation), [Godot Web 저장](https://docs.godotengine.org/en/stable/tutorials/export/exporting_for_web.html#using-cookies-for-data-persistence).
+
+## 느린 CI의 전투 봇 입력
+
+1.2 배포 검사에서 소프트웨어 WebGL이 느린 Chromium의 전투 봇이 적의 작은 Y 차이를 쫓아가다 위쪽 발판에 막혀 쓰러진 기록을 확인했다. 테스트 봇은 지상 Y=130 경로를 유지하며, 짧은 고정 시간 키 입력 대신 실제 이동·방향·공격 번호 변경을 관찰한 뒤 키를 뗀다. `browser_probe.gd`의 공격 번호·경직 시간은 읽기 전용 관찰 필드다. 체력·위치·처치·저장 사실을 테스트에서 쓰거나 전투 난이도를 낮추지 않는다.
+
+로컬에서 Chromium의 CPU를 늦춰 저장 시나리오를 확인할 수 있다.
+
+```bash
+MC_TEST_CPU_RATE=4 npm run test:browser -- --grep 'earned combat'
+```
+
+이 옵션은 자동 검사 브라우저에만 적용한다. 일반 플레이와 Pages 실행 파일에는 속도 조정이나 봇 제어 기능을 추가하지 않는다.

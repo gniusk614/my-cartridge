@@ -173,38 +173,46 @@ test('background/pagehide saves and clears held input; returning waits for conti
 });
 
 async function collectMemory(page) {
-  const held = new Set();
-  async function directions(next) {
-    for (const key of held) if (!next.has(key)) { await page.keyboard.up(key); held.delete(key); }
-    for (const key of next) if (!held.has(key)) { await page.keyboard.down(key); held.add(key); }
+  // Observe actual game responses before releasing each native key. Short timed
+  // presses can be missed when software WebGL stalls the browser's main thread.
+  async function pulse(key, mode, before, sign = 0) {
+    await page.keyboard.down(key);
+    try {
+      await page.waitForFunction(({ mode, before, sign }) => {
+        window.myCartridgeTestSnapshot(); const s = JSON.parse(window.myCartridgeTestState);
+        if (s.state !== 'PLAYING' || s.player.stun > 0) return true;
+        if (mode === 'attack') return s.player.attack_id > before.player.attack_id;
+        if (mode === 'interact') return s.state !== before.state;
+        if (mode === 'turn') return s.player.facing === sign;
+        return Math.hypot(s.player.position[0] - before.player.position[0], s.player.position[1] - before.player.position[1]) >= 5;
+      }, { mode, before, sign }, { timeout: 5_000 });
+    } finally { await page.keyboard.up(key); }
+    await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+    await expect.poll(async () => (await state(page)).player.velocity).toEqual([0, 0]);
   }
-  const deadline = Date.now() + 75_000;
-  try {
-    while (Date.now() < deadline) {
-      const s = await state(page);
-      if (s.state === 'CLUE_REVEAL' && s.progress.collected_clue_ids.length) return s.progress;
-      expect(s.state, 'combat bot stays alive and playing').toBe('PLAYING');
-      const hero = s.player.position;
-      const enemy = s.enemies.sort((a, b) => Math.hypot(a.position[0] - hero[0], a.position[1] - hero[1]) - Math.hypot(b.position[0] - hero[0], b.position[1] - hero[1]))[0];
-      const clue = s.clues[0];
-      const destination = enemy?.position || (clue ? [clue.position.x, clue.position.y] : [909, 133]);
-      const dx = destination[0] - hero[0], dy = destination[1] - hero[1];
-      const next = new Set();
-      if (enemy && Math.abs(dx) < 25 && Math.abs(dy) < 8) {
-        if (s.player.facing !== (dx >= 0 ? 1 : -1)) next.add(dx >= 0 ? 'ArrowRight' : 'ArrowLeft');
-        else { await directions(next); await page.keyboard.press('KeyJ', { delay: 35 }); }
-      } else if (clue && Math.hypot(dx, dy) < 23) {
-        await directions(next);
-        await page.keyboard.press('KeyE', { delay: 35 });
-      } else {
-        if (Math.abs(dx) > 3) next.add(dx > 0 ? 'ArrowRight' : 'ArrowLeft');
-        if (Math.abs(dy) > 3) next.add(dy > 0 ? 'ArrowDown' : 'ArrowUp');
-      }
-      await directions(next);
-      await page.waitForTimeout(90);
+  const deadline = Date.now() + 120_000;
+  while (Date.now() < deadline) {
+    const s = await state(page);
+    if (s.state === 'CLUE_REVEAL' && s.progress.collected_clue_ids.length) return s.progress;
+    expect(s.state, 'combat bot stays alive and playing').toBe('PLAYING');
+    if (s.player.stun > 0) { await expect.poll(async () => (await state(page)).player.stun).toBe(0); continue; }
+    const hero = s.player.position;
+    const enemy = s.enemies.sort((a, b) => Math.hypot(a.position[0] - hero[0], a.position[1] - hero[1]) - Math.hypot(b.position[0] - hero[0], b.position[1] - hero[1]))[0];
+    const clue = s.clues[0], dx = (enemy?.position[0] ?? clue?.position.x ?? 909) - hero[0];
+    // Keep a clear ground lane; chasing a moving enemy's small depth offset can
+    // send a delayed key release into the upper platforms on slow CI machines.
+    const dy = (enemy ? 130 : clue?.position.y ?? 130) - hero[1];
+    if (enemy && Math.abs(dx) < 27 && Math.abs(enemy.position[1] - hero[1]) < 11) {
+      const sign = dx >= 0 ? 1 : -1;
+      if (s.player.facing !== sign) await pulse(sign > 0 ? 'ArrowRight' : 'ArrowLeft', 'turn', s, sign);
+      else await pulse('KeyJ', 'attack', s);
+    } else if (clue && Math.hypot(dx, dy) < 23) await pulse('KeyE', 'interact', s);
+    else {
+      const key = Math.abs(dy) > 5 ? (dy > 0 ? 'ArrowDown' : 'ArrowUp') : dx > 0 ? 'ArrowRight' : 'ArrowLeft';
+      await pulse(key, 'move', s);
     }
-    throw new Error('Combat bot did not reach the memory within 75 seconds');
-  } finally { await directions(new Set()); }
+  }
+  throw new Error('Combat bot did not reach the memory within 120 seconds');
 }
 
 async function diskSaves(page) {
@@ -250,6 +258,10 @@ test('earned combat and memory progress survives reload and a full browser resta
   try {
     let page = context.pages()[0];
     const errors = await boot(page);
+    if (browserName === 'chromium' && process.env.MC_TEST_CPU_RATE) {
+      const cdp = await context.newCDPSession(page);
+      await cdp.send('Emulation.setCPUThrottlingRate', { rate: Number(process.env.MC_TEST_CPU_RATE) });
+    }
     await start(page);
     const earned = await collectMemory(page);
     expect(earned.defeated_actor_ids).toHaveLength(2);

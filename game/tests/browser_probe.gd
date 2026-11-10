@@ -36,6 +36,7 @@ func snapshot(_arguments: Array) -> void:
 			"position": point(game.player.position), "velocity": point(game.player.velocity),
 			"hp": game.player.hp, "elevation": game.player.elevation,
 			"grounded": game.player.grounded, "attack_clock": game.player.attack_clock,
+			"attack_id": game.player.attack_id, "stun": game.player.stun,
 			"facing": game.player.facing, "sprite_key": game.player.sprite_key,
 		}
 		data.chapter_index = GameSession.chapter_index()
