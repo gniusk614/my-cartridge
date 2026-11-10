@@ -252,7 +252,8 @@ test('earned combat and memory progress survives reload and a full browser resta
   const { launchOptions = {} } = testInfo.project.use;
   const launch = () => type.launchPersistentContext(profile, {
     ...launchOptions, headless: true, viewport: { width: 844, height: 390 },
-    deviceScaleFactor: 2, hasTouch: true, isMobile: true, baseURL: 'http://127.0.0.1:8766',
+    // Persistence is independent of pixel density; the input/rotation tests keep DPR 2.
+    deviceScaleFactor: 1, hasTouch: true, isMobile: true, baseURL: 'http://127.0.0.1:8766',
   });
   let context = await launch();
   try {
