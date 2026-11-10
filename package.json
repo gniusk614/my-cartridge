@@ -1,0 +1,14 @@
+{
+  "name": "my-cartridge-checks",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "npm run test:unit && npm run test:browser",
+    "test:unit": "node --test tools/test_web_shell.mjs",
+    "test:browser": "python3 tools/build_browser_tests.py && playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.65.0"
+  },
+  "engines": { "node": ">=20" }
+}

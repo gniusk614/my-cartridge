@@ -67,9 +67,13 @@ bash tools/godot.sh --headless --editor --import --quit
 bash tools/godot.sh --headless --fixed-fps 60 --script res://tests/test_runner.gd
 python3 tools/check_content.py  # jsonschema 패키지 필요
 node --test tools/test_web_shell.mjs
+# 브라우저 검사 최초 설치 후 실행
+npm ci
+npx playwright install chromium webkit
+npm run test:browser
 ```
 
-테스트는 전용 `user://mc_automated_tests` 폴더만 사용합니다. 게임의 일반 저장 폴더를 덮어쓰지 않습니다. 봇 완주는 실제 이동 입력, 물리 프레임, Area2D 판정, 적 AI, 단서 상호작용을 통과합니다. Godot 101개 검사와 웹 셸 15개 검사, 기존 봇 완주 10회를 통과했습니다. Chrome 모바일 에뮬레이션의 가로·회전 대체 화면에서 3점 동시 터치도 확인했습니다. 자동 검사는 재미·터치 조작감·실기기 성능을 보증하지 않습니다.
+테스트는 전용 `user://mc_automated_tests` 폴더만 사용합니다. 게임의 일반 저장 폴더를 덮어쓰지 않습니다. 봇 완주는 실제 이동 입력, 물리 프레임, Area2D 판정, 적 AI, 단서 상호작용을 통과합니다. Godot 105개·웹 셸 17개·브라우저 10개 검사와 기존 봇 완주 10회를 통과했습니다. Chromium·WebKit의 가로·회전 대체 화면에서 3점 동시 터치와 숨김 후 복귀, 실제 전투 진행의 IndexedDB 저장·새로고침·브라우저 재시작 복원을 검사합니다. 자동 검사는 재미·터치 조작감·실기기 성능을 보증하지 않습니다.
 
 ## 데이터 수정
 
@@ -81,4 +85,4 @@ node --test tools/test_web_shell.mjs
 
 웹 저장은 브라우저 데이터 삭제나 사생활 보호 모드에서 유지되지 않을 수 있습니다. 저장 개정이 달라지면 이 버전은 새 진행으로 시작합니다. 개정 간 마이그레이션은 팩 배포 전에 추가해야 합니다.
 
-모바일 테스트와 배포 방법은 `docs/DEVELOPMENT.md`, 모바일 입력 설계는 `docs/MOBILE_UX.md`, 전체화면 동작은 `docs/FULLSCREEN.md`, 실제 검증 기록은 `docs/VALIDATION.md`에서 확인합니다.
+모바일 테스트와 배포 방법은 `docs/DEVELOPMENT.md`, 모바일 입력 설계는 `docs/MOBILE_UX.md`, 전체화면 동작은 `docs/FULLSCREEN.md`, 브라우저 회귀·저장 복원 검사는 `docs/BROWSER_TESTS.md`, 초기 검증 기록은 `docs/VALIDATION.md`에서 확인합니다.

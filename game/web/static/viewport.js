@@ -126,6 +126,14 @@
   document.addEventListener('fullscreenchange', updateLayout);
   document.addEventListener('webkitfullscreenchange', updateLayout);
   if (window.visualViewport) window.visualViewport.addEventListener('resize', updateLayout);
+  // Mobile browsers can hide/freeze a page without first blurring its canvas.
+  // Stop owned touches and save while JavaScript is still allowed to run.
+  const suspend = () => {
+    mouseOnCanvas = false;
+    if (window.myCartridgeOnSuspend) window.myCartridgeOnSuspend();
+  };
+  document.addEventListener('visibilitychange', () => { if (document.hidden) suspend(); });
+  addEventListener('pagehide', suspend);
   document.getElementById('fullscreen-help').textContent = canFullscreen()
     ? '시작하면 전체화면과 가로 전환을 시도합니다. 지원되지 않으면 게임 화면을 가로로 맞춥니다.'
     : '가로 게임 화면으로 시작합니다. iPhone은 Safari의 공유 → 홈 화면에 추가로 주소줄 없이 실행할 수 있어요.';

@@ -1,5 +1,7 @@
 # 모바일 가로 화면과 전체화면
 
+후속 브라우저 회귀 검사와 숨김·저장 복원 결과는 [BROWSER_TESTS.md](BROWSER_TESTS.md)를 따른다.
+
 `게임 시작` 터치에서 Fullscreen API를 호출하고 완료 또는 거부 후 Screen Orientation API의 `lock('landscape')`를 시도한다. 일반 Android Chrome처럼 허용되는 환경에서는 브라우저가 가로 전체화면을 제공한다. 브라우저가 API를 노출해도 호출을 거부할 수 있으므로 기능 확인과 예외 처리를 모두 한다. 사용자 제스처 없는 페이지 로드 시 전체화면이나 OS 방향 강제를 보장할 수 없다.
 
 ## 가로 잠금 미지원 시 회전 대체

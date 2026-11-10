@@ -18,6 +18,7 @@ var checkpoint_clock := 0.0
 var indoors := false
 var street_return := Vector2(884, 134)
 var layout_callback
+var suspend_callback
 
 func _ready() -> void:
 	configure_input()
@@ -38,10 +39,19 @@ func _ready() -> void:
 	if OS.has_feature("web"):
 		layout_callback = JavaScriptBridge.create_callback(on_browser_layout)
 		JavaScriptBridge.get_interface("window").myCartridgeOnLayout = layout_callback
+		suspend_callback = JavaScriptBridge.create_callback(on_browser_suspend)
+		JavaScriptBridge.get_interface("window").myCartridgeOnSuspend = suspend_callback
+		if OS.has_feature("browser_test"):
+			var probe = load("res://tests/browser_probe.gd").new()
+			add_child(probe)
 	show_title()
 
 func on_browser_layout(_arguments: Array) -> void:
 	ui.apply_layout()
+
+func on_browser_suspend(_arguments: Array) -> void:
+	ui.touches.release_all()
+	pause_game()
 
 func configure_input() -> void:
 	var bindings := {"move_left": [KEY_A, KEY_LEFT], "move_right": [KEY_D, KEY_RIGHT],

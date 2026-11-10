@@ -15,7 +15,7 @@ concurrency:
 jobs:
   verify:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v6
       - name: Verify tested export matches source
@@ -26,6 +26,28 @@ jobs:
         run: |
           python3 -m pip install -r requirements-dev.txt
           python3 tools/check_content.py
+      - name: Install browser checks
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium webkit
+      - name: Install pinned Godot editor
+        run: |
+          curl -fL --retry 3 -o "$RUNNER_TEMP/godot.zip" https://github.com/godotengine/godot-builds/releases/download/4.7.2-stable/Godot_v4.7.2-stable_linux.x86_64.zip
+          unzip -q "$RUNNER_TEMP/godot.zip" -d "$RUNNER_TEMP/godot"
+          echo "GODOT_BIN=$RUNNER_TEMP/godot/Godot_v4.7.2-stable_linux.x86_64" >> "$GITHUB_ENV"
+      - name: Import and run Godot regression checks
+        run: |
+          bash tools/godot.sh --headless --editor --import --quit
+          bash tools/godot.sh --headless --fixed-fps 60 --script res://tests/test_runner.gd
+      - name: Check browser input, suspension and IndexedDB restore
+        run: npm run test:browser
+      - name: Keep browser failure traces
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: browser-failures
+          path: test-results/
+          if-no-files-found: ignore
       - name: Upload playable build
         uses: actions/upload-pages-artifact@v4
         with:

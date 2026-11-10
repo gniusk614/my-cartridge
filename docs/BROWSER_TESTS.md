@@ -1,0 +1,61 @@
+# 브라우저 회귀 검사와 모바일 복귀 (2026-11-10)
+
+모바일 UX 다음 단계로 브라우저 입력·일시중단·저장 복원을 자동 검사에 연결했다. 실제 게임의 전투·진행·저장 형식과 팩 개정은 유지한다.
+
+## 실행
+
+Godot 4.7.2, Node.js 20 이상과 Python 3가 필요하다. 최초 한 번 의존성과 브라우저를 설치한다.
+
+```bash
+npm ci
+npx playwright install chromium webkit
+bash tools/godot.sh --headless --editor --import --quit
+npm test
+```
+
+Linux CI에서는 `npx playwright install --with-deps chromium webkit`으로 시스템 라이브러리도 설치한다. Godot 위치를 자동으로 찾지 못하면 `GODOT_BIN`을 지정한다. 이미 설치된 Chrome을 사용할 때는 `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH`에 실행 파일 경로를 지정할 수 있다. 다른 Playwright 브라우저 캐시를 사용할 때는 표준 `PLAYWRIGHT_BROWSERS_PATH`를 지정한다.
+
+`npm run test:unit`은 웹 셸 단위 검사만 실행한다. `npm run test:browser`는 `tools/build_browser_tests.py`로 테스트 전용 팩을 내보낸 뒤 Playwright를 실행한다. 테스트 서버는 127.0.0.1의 8766·8767 포트를 사용하며 실행 종료 시 정리한다. 별도로 실행 중인 서버를 재사용하지 않는다.
+
+## 공개 빌드와 분리
+
+`Browser Tests` 내보내기 프리셋만 `browser_test` 기능 태그를 갖는다. 이 태그가 있을 때만 `game/tests/browser_probe.gd`를 설치해 위치·속도·게임 상태·진행·UI 버튼 위치를 읽는다. JavaScript에서 게임 진행을 변경하거나 임의 명령을 실행하는 기능은 없다. 봇도 실제 키보드 입력으로 적을 처치하고 E 상호작용으로 기억을 얻는다.
+
+테스트는 `user://mc_browser_tests` 폴더와 임시 브라우저 프로필을 사용한다. 일반 플레이 저장을 덮어쓰지 않는다. `build/browser`와 프로필·결과 파일은 Git에서 제외한다. 테스트 팩은 공개 `web/` 폴더에 복사하지 않는다. 공개 `Web` 프리셋은 `tests/*`를 제외하고, URL에 `browser_test=1`을 붙여도 테스트 관찰 함수가 노출되지 않는지 별도로 검사한다.
+
+기존 공개 Web의 동일 버전 WASM·JS를 재사용하므로 테스트용 팩 생성에는 전체 export templates가 필요하지 않다. 공개 릴리스를 재생성할 때는 기존과 같이 Web export templates가 필요하다. 셸 HTML·JS·CSS는 현재 게임 소스에서 가져온다.
+
+## 자동 시나리오
+
+Chromium과 WebKit에서 아래 다섯 시나리오씩 총 10개를 실행한다.
+
+1. 가로 화면: 실제 메뉴 탭, 데드존, 40px/s 아날로그 반속 이동, 임의 방향 크기 제한, 이동+점프+공격 3점 입력, 이동 손가락만 해제, 취소, 잡고 있는 동안 회전, 회전 후 일시정지·계속하기.
+2. 세로 회전 대체 화면: 같은 입력·메뉴 검사를 변환된 좌표에서 수행.
+3. 수명주기: `visibilitychange(hidden)`와 `pagehide`에서 입력 해제·정지·저장, 돌아온 뒤 자동으로 전투를 재개하지 않고 계속하기를 기다림.
+4. 저장: 실제 전투로 적 둘 처치 → 단서 수집 → IndexedDB의 파일 내용 확인 → 페이지 새로고침 → 처치·기억·목표·체력 비교 → 브라우저 프로세스 완전 종료·같은 임시 프로필로 재실행 → 같은 진행 복원 확인.
+5. 공개 빌드: 실제 배포용 Web 팩 로딩과 테스트 관찰 함수 미노출 확인.
+
+각 브라우저 입력은 DOM 이벤트를 통과해 Godot의 실제 물리와 UI까지 도달한다. Chromium 다중 터치는 CDP, WebKit 다중 터치는 합성 touch 이벤트를 사용한다. 두 브라우저의 메뉴는 Playwright의 실제 탭 API를 사용한다. 새 UI 버튼 좌표는 Godot 컨테이너 배치가 끝난 후 읽으며, 물리 결과는 프레임 반영을 기다려 비교한다. 부동소수점 이동값에는 허용 오차를 둔다.
+
+숨김·이탈 이벤트는 자동 주입한 수명주기 시나리오이며, 실제 휴대폰의 홈 전환이나 OS가 프로세스를 강제 종료하는 상황을 대신하지 않는다. IndexedDB 검사는 일반 브라우저 프로필에서 실제 디스크 반영을 확인한 뒤 새로고침·프로세스 재시작을 수행한다. 사생활 보호·저장 용량 부족·즉시 강제 종료에서 보존을 보장하지 않는다.
+
+## 복귀 처리 변경
+
+캔버스 blur만 의존하던 경로에 문서 숨김과 `pagehide` 처리를 추가했다. 브라우저가 blur 없이 페이지를 숨겨도 `myCartridgeOnSuspend`로 현재 터치를 해제하고, 플레이 중이면 기존 일시정지·저장을 실행한다. 이미 정지한 상태에서 반복 호출되어도 상태를 바꾸지 않는다. `pageshow`나 visible만으로 자동 재개하지 않는다.
+
+전투·스토리·저장 스키마, 오디오 에셋과 조작 규칙은 바꾸지 않았다. 웹 저장 동기화는 브라우저의 비동기 처리이므로 종료 순간의 저장을 동기적으로 강제 완료한다고 주장하지 않는다.
+
+## 배포 전 검사
+
+GitHub Actions는 공개 내보내기 해시·웹 셸·스키마 검사에 더해 Godot 4.7.2 import와 물리 회귀, Chromium/WebKit 브라우저 검사를 실행한다. 모두 통과해야 Pages 업로드·배포가 진행된다. 브라우저 실패 시 `test-results/`의 trace·화면을 보관하고, 프로필 재시작 검사에는 마지막 게임 상태와 화면을 첨부한다.
+
+최신 로컬 결과: Godot 105개 검사·기존 세 팩 완주 10회·웹 셸 17개 검사·브라우저 10개 시나리오 모두 통과했다. 최종 npm test는 약 2분에 완료했다. Chrome 154 기반 설치 브라우저와 Playwright WebKit 27.2를 macOS에서 실행했으며, 배포 시 CI에서는 Playwright의 고정 Chromium/WebKit을 사용한다.
+
+## 실기기에서 남은 확인
+
+- iPhone Safari와 Android Chrome에서 양손 조작감·노치·홈 제스처·주소줄 변화.
+- 홈으로 나갔다 복귀, 전화·잠금 화면·백그라운드 강제 종료, 저메모리 재시작.
+- 실제 장치 오디오 시작·음소거·복귀와 저장 용량·사생활 보호 모드.
+- 모바일 FPS·입력 지연과 사람의 전투 재미·플레이 시간.
+
+참고: [Playwright 모바일 에뮬레이션](https://playwright.dev/docs/emulation), [Godot Web 저장](https://docs.godotengine.org/en/stable/tutorials/export/exporting_for_web.html#using-cookies-for-data-persistence).

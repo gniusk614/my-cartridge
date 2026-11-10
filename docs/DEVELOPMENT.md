@@ -10,7 +10,7 @@ https://gniusk614.github.io/my-cartridge/ 주소를 휴대폰 Safari 또는 Chro
 
 iPhone에서 주소줄 없이 실행하려면 Safari의 공유 메뉴에서 홈 화면에 추가한 뒤 아이콘으로 실행한다. 최초 로딩은 약 45 MiB의 압축 전 파일 크기이며 네트워크에 따라 시간이 걸린다. 저장은 기기·브라우저·주소마다 별개다.
 
-Godot 자동 검사 101개, 웹 셸 검사 15개와 세 팩을 순환한 실제 물리·입력 봇 완주 10회를 통과했다. Chrome 모바일 에뮬레이션에서 가로 및 세로 회전 대체 화면의 메뉴, 이동+점프+공격 3점 터치, 취소·회전을 확인했다. Playwright WebKit에서도 실제 메뉴 탭과 합성 다중 터치 이벤트의 게임 동작을 확인했다. 실기기의 조작감, 브라우저 주소줄, 노치, 오디오, 앱 복귀 및 IndexedDB 저장 지속성은 별도 검증 대상이다.
+Godot 자동 검사 105개, 웹 셸 검사 17개, 브라우저 시나리오 10개와 세 팩을 순환한 실제 물리·입력 봇 완주 10회를 통과했다. Chrome 모바일 에뮬레이션에서 가로 및 세로 회전 대체 화면의 메뉴, 이동+점프+공격 3점 터치, 취소·회전을 확인했다. Playwright WebKit에서도 실제 메뉴 탭과 합성 다중 터치 이벤트의 게임 동작을 확인했다. 브라우저 숨김·이탈 이벤트의 일시정지와 실제 전투 기록의 IndexedDB 저장·새로고침·프로세스 재시작 복원을 자동 검사한다. 실기기의 조작감, 주소줄, 노치, 오디오, OS 홈 전환·강제 종료와 사생활 보호 저장은 별도 검증 대상이다.
 
 ## 코드 구조
 
@@ -32,12 +32,13 @@ bash tools/godot.sh --headless --export-release Web ../build/web/index.html
 python3 tools/prepare_web.py
 python3 tools/check_content.py
 node --test tools/test_web_shell.mjs
+npm run test:browser  # 최초 npm ci 및 npx playwright install chromium webkit 필요
 git add .
 git commit -m "Update game and tested web export"
 git push origin main
 ```
 
-빌드된 Web 파일은 web/에 보관하고 GitHub Actions가 검사 후 Pages에 배포한다. prepare_web.py는 게임 소스와 에셋의 해시를 기록한다. 소스만 바뀌고 내보내기가 갱신되지 않으면 배포 검사가 실패한다. CI에서 Godot 런타임 전체를 설치하거나 물리 완주 검사를 다시 실행하지는 않으므로 위 로컬 검사를 먼저 수행해야 한다.
+빌드된 Web 파일은 web/에 보관하고 GitHub Actions가 검사 후 Pages에 배포한다. prepare_web.py는 게임 소스와 에셋의 해시를 기록한다. 소스만 바뀌고 내보내기가 갱신되지 않으면 배포 검사가 실패한다. CI에서도 고정 버전 Godot 에디터를 설치해 import·물리 완주를 실행하고 Chromium/WebKit 브라우저 입력·복귀·저장 복원을 검사한다. 테스트용 팩은 공개 업로드 대상에 넣지 않는다. 실행과 격리 방식은 [BROWSER_TESTS.md](BROWSER_TESTS.md)를 따른다.
 
 GitHub Pages 주소가 모든 사람에게 열려 있으므로 실제 고객의 개인 정보나 사연을 공개 샘플 팩에 넣지 않는다. 고객별 접근 제어는 향후 플랫폼 단계에서 구현한다.
 

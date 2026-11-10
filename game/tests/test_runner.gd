@@ -275,6 +275,7 @@ func run() -> void:
 	if outside_enemy != null:
 		expect(outside_enemy.is_physics_processing(), "outside enemy resumes after exit")
 	await test_mobile_controls()
+	await test_browser_suspend()
 	# Real window resize: expanded game viewport and edge-anchored touch controls.
 	var original_window_size := root.size
 	root.size = Vector2i(1950, 900)
@@ -381,3 +382,17 @@ func test_mobile_controls() -> void:
 	expect(game.player.velocity == Vector2.ZERO, "player stops by next physics frame after all movement releases")
 	touch(43, true, controls.buttons[0].center + Vector2.ONE * controls.buttons[0].radius * 0.9)
 	expect(not Input.is_action_pressed("attack"), "outside circular action hit area is not pressed")
+
+func test_browser_suspend() -> void:
+	game.play()
+	touch(50, true, Vector2(65, 125))
+	drag(50, Vector2(89, 125))
+	game.on_browser_suspend([])
+	expect(session.state == "PAUSED" and mobile.movement == Vector2.ZERO, "browser suspension pauses and clears held input")
+	expect(not session.progress.saved_at.is_empty(), "browser suspension persists progress")
+	var paused_position: Vector2 = game.player.position
+	for i in 5: await physics_frame
+	expect(game.player.position == paused_position, "suspended player stays still")
+	game.on_browser_suspend([])
+	expect(session.state == "PAUSED", "repeated browser suspension is idempotent")
+	game.play()

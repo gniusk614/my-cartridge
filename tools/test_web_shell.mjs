@@ -215,3 +215,28 @@ test('rotated canvas does not intercept fullscreen overlay mouse gestures', asyn
   page.events.mousedown(event);
   assert.equal(page.element('canvas').forwarded.length, 0);
 });
+
+
+test('hidden document and pagehide suspend once per event without auto resume', async () => {
+  const page = await boot();
+  let suspends = 0;
+  page.context.myCartridgeOnSuspend = () => suspends++;
+  page.document.hidden = false;
+  page.events.visibilitychange();
+  assert.equal(suspends, 0);
+  page.document.hidden = true;
+  page.events.visibilitychange();
+  assert.equal(suspends, 1);
+  page.events.pagehide();
+  assert.equal(suspends, 2);
+  page.document.hidden = false;
+  page.events.visibilitychange();
+  assert.equal(suspends, 2);
+});
+
+test('suspending before engine callbacks are ready is harmless', async () => {
+  const page = await boot();
+  page.document.hidden = true;
+  assert.doesNotThrow(() => page.events.visibilitychange());
+  assert.doesNotThrow(() => page.events.pagehide());
+});

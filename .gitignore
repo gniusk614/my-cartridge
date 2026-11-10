@@ -6,6 +6,9 @@ build/
 __pycache__/
 .env
 .env.*
+node_modules/
+test-results/
+playwright-report/
 # Supplied planning documents and internal review notes stay local.
 docs/01_PRODUCT_PRD.md
 docs/02_TECHNICAL_DESIGN.md
