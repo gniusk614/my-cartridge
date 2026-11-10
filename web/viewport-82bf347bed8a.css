@@ -4,6 +4,8 @@ html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden;
 #game-shell { position: fixed; inset: 0; width: 100%; height: 100%; height: 100dvh; overflow: hidden; background: #101b30; touch-action: none; }
 #game-shell:fullscreen { width: 100vw; height: 100vh; height: 100dvh; }
 #game-shell:-webkit-full-screen { width: 100vw; height: 100vh; }
+#game-surface { position: absolute; top: 0; left: 0; transform-origin: top left; }
+#game-surface.rotated { left: 100%; transform: rotate(90deg); }
 #canvas { display: block; width: 100% !important; height: 100% !important; padding: 0; margin: 0; border: 0; outline: none; touch-action: none; }
 [hidden] { display: none !important; }
 .screen { position: absolute; inset: 0; display: grid; place-items: center; z-index: 30; padding: max(16px, env(safe-area-inset-top)) max(20px, env(safe-area-inset-right)) max(16px, env(safe-area-inset-bottom)) max(20px, env(safe-area-inset-left)); background: #101b30; text-align: center; overflow-y: auto; touch-action: pan-y; }
@@ -19,8 +21,7 @@ button:disabled { opacity: .45; cursor: wait; }
 .launch-content button { display: block; width: 100%; margin: 8px 0; }
 button.secondary { background: transparent; color: #dce7ed; border-color: #607589; }
 progress { display: block; width: 100%; height: 7px; margin: 12px 0 18px; accent-color: #8ccfc6; }
-.rotate-icon { font-size: 58px; color: #8ccfc6; line-height: 1; }
-#fullscreen-toggle { position: absolute; z-index: 20; top: max(8px, env(safe-area-inset-top)); right: calc(env(safe-area-inset-right) + clamp(90px, 12vw, 180px)); padding: 5px 10px; min-height: 30px; border-radius: 5px; font-size: 12px; background: #17263dcc; color: #f1e5d1; border-color: #607589; }
+#fullscreen-toggle { position: absolute; z-index: 20; top: max(8px, env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); padding: 5px 10px; min-height: 30px; border-radius: 5px; font-size: 12px; background: #17263dcc; color: #f1e5d1; border-color: #607589; }
 #safe-area-probe { position: absolute; pointer-events: none; visibility: hidden; padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); }
 @media (max-height: 430px) and (orientation: landscape) {
   #launch .launch-content { width: min(100%, 520px); }
@@ -30,3 +31,5 @@ progress { display: block; width: 100%; height: 7px; margin: 12px 0 18px; accent
   #launch progress { margin: 8px 0; }
   #launch button { min-height: 40px; padding: 7px 14px; margin: 6px 0; }
 }
+
+#game-surface.rotated #fullscreen-toggle { top: max(8px, env(safe-area-inset-right)); }

@@ -8,6 +8,7 @@ var game
 var Quest
 var Actor
 var Combat
+var mobile
 
 func _initialize() -> void:
 	run.call_deferred()
@@ -20,6 +21,7 @@ func expect(condition: bool, label: String) -> void:
 
 func run() -> void:
 	session = root.get_node("GameSession")
+	mobile = root.get_node("MobileInput")
 	loader = root.get_node("PackLoader")
 	Quest = load("res://scripts/gameplay/quest_manager.gd")
 	Actor = load("res://scripts/actors/actor.gd")
@@ -272,15 +274,16 @@ func run() -> void:
 	game.interact_nearby()
 	if outside_enemy != null:
 		expect(outside_enemy.is_physics_processing(), "outside enemy resumes after exit")
+	await test_mobile_controls()
 	# Real window resize: expanded game viewport and edge-anchored touch controls.
 	var original_window_size := root.size
 	root.size = Vector2i(1950, 900)
 	for i in 3: await process_frame
 	var expanded: Vector2 = root.get_visible_rect().size
 	expect(expanded.x > 320 and absf(expanded.y - 180) < 1, "wide window expands horizontal view without letterboxing")
-	for item in game.ui.touch_layout:
-		var rect := Rect2(item.button.position, Vector2(28, 28))
-		expect(rect.position.x >= 0 and rect.end.x <= expanded.x and rect.position.y >= 0 and rect.end.y <= expanded.y, "touch control stays on resized screen: " + str(item.button.action))
+	for item in game.ui.touches.buttons:
+		var rect := Rect2(item.center - Vector2.ONE * item.radius, Vector2.ONE * item.radius * 2)
+		expect(rect.position.x >= 0 and rect.end.x <= expanded.x and rect.position.y >= 0 and rect.end.y <= expanded.y, "touch control stays on resized screen: " + str(item.action))
 	expect(absf(game.ui.modal.position.x + game.ui.modal.size.x * 0.5 - expanded.x * 0.5) < 1, "modal stays centered on wide screen")
 	game.player.position.x = 24
 	game.update_camera()
@@ -289,8 +292,8 @@ func run() -> void:
 	game.update_camera()
 	expect(absf(game.camera.position.x + expanded.x * 0.5 - 960) < 1, "wide camera keeps stage right edge")
 	game.ui.layout_for_size(Vector2(390, 180), {"left": 47, "right": 47, "bottom": 34, "width": 844, "height": 390})
-	for item in game.ui.touch_layout:
-		expect(item.button.position.x >= 47.0 * 390 / 844 and item.button.position.x + 28 <= 390 - 47.0 * 390 / 844, "touch control clears landscape notch")
+	for item in game.ui.touches.buttons:
+		expect(item.center.x - item.radius >= 47.0 * 390 / 844 and item.center.x + item.radius <= 390 - 47.0 * 390 / 844, "touch control clears landscape notch")
 	root.size = original_window_size
 	for i in 3: await process_frame
 	game.ui.apply_layout()
@@ -299,3 +302,82 @@ func run() -> void:
 	await process_frame
 	await process_frame
 	quit(0 if failures == 0 else 1)
+
+func touch(index: int, pressed: bool, point: Vector2, canceled := false) -> void:
+	var event := InputEventScreenTouch.new()
+	event.index = index
+	event.position = point
+	event.pressed = pressed
+	event.canceled = canceled
+	root.push_input(event, true)
+
+func drag(index: int, point: Vector2) -> void:
+	var event := InputEventScreenDrag.new()
+	event.index = index
+	event.position = point
+	root.push_input(event, true)
+
+func test_mobile_controls() -> void:
+	game.start(false)
+	game.play()
+	var controls = game.ui.touches
+	var origin := Vector2(65, 125)
+	expect(controls.buttons.size() == 3 and controls.buttons[0].radius > controls.buttons[1].radius, "three circular actions with larger attack, no mobile crouch")
+	touch(10, true, origin)
+	expect(controls.stick_center == origin and mobile.movement == Vector2.ZERO, "floating stick starts at exact contact with zero tilt")
+	drag(10, origin + Vector2(2, 1))
+	expect(mobile.movement == Vector2.ZERO, "radial deadzone ignores small drift")
+	drag(10, origin + Vector2(controls.stick_radius * 0.58, 0))
+	expect(absf(mobile.movement.x - 0.5) < 0.01, "stick tilt gives half movement speed after deadzone")
+	for i in 3: await physics_frame
+	expect(absf(game.player.velocity.x - 40) < 0.1, "analog strength reaches actual player physics")
+	drag(10, origin + Vector2(100, -40))
+	expect(absf(mobile.movement.length() - 1) < 0.001 and mobile.movement.y < 0, "360 degree direction clamps magnitude without axis snapping")
+	touch(11, true, origin + Vector2(-20, 10))
+	drag(11, origin - Vector2(100, 0))
+	expect(controls.stick_pointer == 10 and mobile.movement.x > 0, "second finger cannot steal movement pointer")
+	touch(11, false, origin)
+	expect(mobile.movement.x > 0, "unrelated release preserves joystick")
+	var jump: Vector2 = controls.buttons[1].center
+	var attack: Vector2 = controls.buttons[0].center
+	touch(20, true, jump)
+	for i in 2: await physics_frame
+	expect(not game.player.grounded and mobile.movement.x > 0, "left movement and right jump work simultaneously")
+	touch(21, true, attack)
+	for i in 2: await physics_frame
+	expect(game.player.attack_clock > 0 and Input.is_action_pressed("jump") and mobile.movement.x > 0, "three finger move jump attack preserves existing airborne combat")
+	touch(10, false, origin)
+	expect(mobile.movement == Vector2.ZERO and Input.is_action_pressed("attack"), "stick release stops immediately without releasing attack")
+	touch(22, true, attack)
+	touch(21, false, attack)
+	expect(Input.is_action_pressed("attack"), "same button stays pressed until last owning finger releases")
+	touch(22, false, attack, true)
+	touch(20, false, jump, true)
+	expect(not Input.is_action_pressed("attack") and not Input.is_action_pressed("jump"), "touchcancel releases owned actions")
+	touch(30, true, origin)
+	drag(30, origin + Vector2(controls.stick_radius, 0))
+	touch(31, true, controls.buttons[2].center)
+	game.pause_game()
+	expect(mobile.movement == Vector2.ZERO and controls.contacts.is_empty() and not Input.is_action_pressed("interact"), "pause/modal clears every active touch")
+	game.play()
+	drag(30, origin + Vector2(100, 0))
+	expect(mobile.movement == Vector2.ZERO, "held contact cannot resume after modal without new press")
+	touch(40, true, origin)
+	drag(40, origin + Vector2(controls.stick_radius, 0))
+	controls.notification(NOTIFICATION_APPLICATION_FOCUS_OUT)
+	expect(mobile.movement == Vector2.ZERO and controls.stick_pointer == -1, "focus loss clears joystick")
+	touch(41, true, origin)
+	drag(41, origin + Vector2(controls.stick_radius, 0))
+	game.ui.apply_layout()
+	expect(mobile.movement == Vector2.ZERO, "viewport/rotation layout clears held controls")
+	game.player.reset_motion()
+	Input.action_press("move_right")
+	touch(42, true, origin)
+	drag(42, origin - Vector2(controls.stick_radius, 0))
+	touch(42, false, origin)
+	expect(Input.is_action_pressed("move_right") and game.player.movement() == Vector2.RIGHT, "stick release preserves keyboard movement")
+	Input.action_release("move_right")
+	for i in 2: await physics_frame
+	expect(game.player.velocity == Vector2.ZERO, "player stops by next physics frame after all movement releases")
+	touch(43, true, controls.buttons[0].center + Vector2.ONE * controls.buttons[0].radius * 0.9)
+	expect(not Input.is_action_pressed("attack"), "outside circular action hit area is not pressed")

@@ -164,7 +164,7 @@ func reset_motion() -> void:
 
 func movement() -> Vector2:
 	if team == "player":
-		return Input.get_vector("move_left", "move_right", "move_up", "move_down")
+		return (Input.get_vector("move_left", "move_right", "move_up", "move_down") + MobileInput.movement).limit_length()
 	if not is_instance_valid(target) or target.hp <= 0: return Vector2.ZERO
 	var offset := target.position - position
 	facing = 1 if offset.x >= 0 else -1

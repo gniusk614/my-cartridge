@@ -5,12 +5,11 @@ var hud: Label
 var status: Label
 var modal: PanelContainer
 var body: VBoxContainer
-var touches: Node2D
+var touches
 var hp: ColorRect
 var hp_fill: ColorRect
 var ui_theme: Theme
 var pause_button: Button
-var touch_layout: Array = []
 
 func _ready() -> void:
 	layer = 10
@@ -98,41 +97,12 @@ func layout_for_size(size: Vector2, safe: Dictionary = {}) -> void:
 	status.position = Vector2(left + 74, size.y - bottom - 14)
 	status.size.x = maxf(80, size.x - left - right - 160)
 	modal.position = (size - modal.size) * 0.5
-	for item in touch_layout:
-		var offset := Vector2(left - 3 if item.left_side else size.x - 320 - (right - 13), size.y - 180 - bottom)
-		item.button.position = item.origin + offset
+	touches.configure(size, Rect2(left, top, size.x - left - right, size.y - top - bottom))
 
 func create_touches() -> void:
-	touches = Node2D.new()
+	touches = preload("res://scripts/ui/mobile_controls.gd").new()
+	touches.ui_theme = ui_theme
 	add_child(touches)
-	for spec in [["move_left", "←", Vector2(17, 145)], ["move_right", "→", Vector2(67, 145)],
-		["move_up", "↑", Vector2(42, 120)], ["move_down", "↓", Vector2(42, 166)],
-		["attack", "공격", Vector2(293, 151)], ["interact", "살피기", Vector2(250, 116)],
-		["jump", "점프", Vector2(293, 116)], ["crouch", "앉기", Vector2(250, 151)]]:
-		var button := TouchScreenButton.new()
-		button.action = spec[0]
-		button.position = spec[2]
-		var shape := CircleShape2D.new()
-		shape.radius = 13
-		button.shape = shape
-		button.visibility_mode = TouchScreenButton.VISIBILITY_ALWAYS
-		var image := Image.create(28, 28, false, Image.FORMAT_RGBA8)
-		image.fill(Color(0.09, 0.16, 0.26, 0.65))
-		button.texture_normal = ImageTexture.create_from_image(image)
-		button.texture_pressed = button.texture_normal
-		# Shape is centered at texture center; place button around intended center.
-		button.position -= Vector2(14, 14)
-		touch_layout.append({"button": button, "origin": button.position, "left_side": str(spec[0]).begins_with("move_")})
-		touches.add_child(button)
-		var label := Label.new()
-		label.theme = ui_theme
-		label.position = Vector2(0, 5)
-		label.size = Vector2(28, 18)
-		label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		label.text = spec[1]
-		label.add_theme_font_size_override("font_size", 9)
-		label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		button.add_child(label)
 
 func clear_modal(title: String, text: String) -> void:
 	for child in body.get_children():

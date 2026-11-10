@@ -9,6 +9,7 @@ config/features=PackedStringArray("4.7", "GL Compatibility")
 EventBus="*res://scripts/core/event_bus.gd"
 GameSession="*res://scripts/core/game_session.gd"
 PackLoader="*res://scripts/data/pack_loader.gd"
+MobileInput="*res://scripts/ui/mobile_input.gd"
 
 [display]
 window/size/viewport_width=320

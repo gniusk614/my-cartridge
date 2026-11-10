@@ -17,7 +17,7 @@ var muted := false
 var checkpoint_clock := 0.0
 var indoors := false
 var street_return := Vector2(884, 134)
-var portrait_callback
+var layout_callback
 
 func _ready() -> void:
 	configure_input()
@@ -36,12 +36,12 @@ func _ready() -> void:
 	add_child(music)
 	EventBus.actor_defeated.connect(on_defeat)
 	if OS.has_feature("web"):
-		portrait_callback = JavaScriptBridge.create_callback(on_browser_portrait)
-		JavaScriptBridge.get_interface("window").myCartridgeOnPortrait = portrait_callback
+		layout_callback = JavaScriptBridge.create_callback(on_browser_layout)
+		JavaScriptBridge.get_interface("window").myCartridgeOnLayout = layout_callback
 	show_title()
 
-func on_browser_portrait(_arguments: Array) -> void:
-	pause_game()
+func on_browser_layout(_arguments: Array) -> void:
+	ui.apply_layout()
 
 func configure_input() -> void:
 	var bindings := {"move_left": [KEY_A, KEY_LEFT], "move_right": [KEY_D, KEY_RIGHT],

@@ -20,7 +20,7 @@ jobs:
       - uses: actions/checkout@v6
       - name: Verify tested export matches source
         run: python3 tools/prepare_web.py --check
-      - name: Check fullscreen and orientation behavior
+      - name: Check mobile viewport and multitouch coordinates
         run: node --test tools/test_web_shell.mjs
       - name: Validate sample schemas
         run: |

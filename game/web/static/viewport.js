@@ -1,10 +1,10 @@
-/* Fullscreen is always requested from an explicit user gesture. */
+/* Native landscape when allowed; rotated canvas with matching input otherwise. */
 (() => {
   'use strict';
   const shell = document.getElementById('game-shell');
+  const surface = document.getElementById('game-surface');
   const canvas = document.getElementById('canvas');
   const launch = document.getElementById('launch');
-  const rotate = document.getElementById('rotate-screen');
   const toggle = document.getElementById('fullscreen-toggle');
   const fullButton = document.getElementById('launch-fullscreen');
   const windowButton = document.getElementById('launch-windowed');
@@ -13,21 +13,88 @@
   const canFullscreen = () => Boolean((document.fullscreenEnabled && shell.requestFullscreen) || (document.webkitFullscreenEnabled && shell.webkitRequestFullscreen));
   const isFullscreen = () => Boolean(document.fullscreenElement || document.webkitFullscreenElement);
   const isStandalone = () => matchMedia('(display-mode: standalone)').matches || matchMedia('(display-mode: fullscreen)').matches || navigator.standalone === true;
-  const homeHelp = 'iPhone은 Safari의 공유 → 홈 화면에 추가로 실행하면 주소줄 없이 플레이할 수 있어요. 가로 방향 잠금도 해제해 주세요.';
   let began = false;
+  let rotated = false;
+  let geometry = '';
+  let mouseOnCanvas = false;
+  const forwarded = new WeakSet();
 
   function updateLayout() {
-    const portrait = innerHeight > innerWidth;
-    rotate.hidden = !began || !portrait;
-    if (began && portrait && window.myCartridgeOnPortrait) window.myCartridgeOnPortrait();
-    toggle.hidden = !began || portrait || isFullscreen() || isStandalone() || !canFullscreen();
+    const width = shell.clientWidth || innerWidth;
+    const height = shell.clientHeight || innerHeight;
+    rotated = began && height > width;
+    surface.classList.toggle('rotated', rotated);
+    const gameWidth = rotated ? height : width;
+    const gameHeight = rotated ? width : height;
+    surface.style.width = `${gameWidth}px`;
+    surface.style.height = `${gameHeight}px`;
+    // Resize policy 0: the shell owns the backing size, including DPR and rotation.
+    const pixelWidth = Math.max(1, Math.round(gameWidth * (devicePixelRatio || 1)));
+    const pixelHeight = Math.max(1, Math.round(gameHeight * (devicePixelRatio || 1)));
+    if (canvas.width !== pixelWidth) canvas.width = pixelWidth;
+    if (canvas.height !== pixelHeight) canvas.height = pixelHeight;
+    toggle.hidden = !began || isFullscreen() || isStandalone() || !canFullscreen();
     const style = getComputedStyle(document.getElementById('safe-area-probe'));
-    window.myCartridgeSafeArea = {
+    const physical = {
       left: parseFloat(style.paddingLeft) || 0, right: parseFloat(style.paddingRight) || 0,
       top: parseFloat(style.paddingTop) || 0, bottom: parseFloat(style.paddingBottom) || 0,
-      width: shell.clientWidth, height: shell.clientHeight,
+    };
+    // CSS rotates clockwise: physical top becomes the game's left safe edge.
+    window.myCartridgeSafeArea = rotated ? {
+      left: physical.top, right: physical.bottom, top: physical.right, bottom: physical.left,
+      width: gameWidth, height: gameHeight,
+    } : { ...physical, width: gameWidth, height: gameHeight };
+    const next = JSON.stringify(window.myCartridgeSafeArea) + rotated;
+    if (next !== geometry) {
+      geometry = next;
+      if (window.myCartridgeOnLayout) window.myCartridgeOnLayout();
+    }
+  }
+
+  // Godot normalizes client coordinates against the transformed bounding rectangle.
+  // Feed the inverse rotation in that same rectangle; IDs and changed touch sets stay intact.
+  function mapPoint(point, rect) {
+    return {
+      clientX: rect.left + (point.clientY - rect.top) / rect.height * rect.width,
+      clientY: rect.top + (1 - (point.clientX - rect.left) / rect.width) * rect.height,
     };
   }
+  function remap(event) {
+    if (!rotated || forwarded.has(event)) return;
+    if (!event.type.startsWith('touch')) {
+      if (event.type === 'mousedown') mouseOnCanvas = event.target === canvas;
+      if (event.target !== canvas && !mouseOnCanvas) return;
+      if (event.type === 'mouseup') mouseOnCanvas = false;
+    }
+    const rect = canvas.getBoundingClientRect();
+    let copy;
+    if (event.type.startsWith('touch')) {
+      copy = new Event(event.type, { bubbles: true, cancelable: true });
+      for (const key of ['touches', 'targetTouches', 'changedTouches']) {
+        Object.defineProperty(copy, key, { value: Array.from(event[key], touch => ({
+          identifier: touch.identifier, target: canvas, ...mapPoint(touch, rect),
+        })) });
+      }
+      for (const key of ['altKey', 'ctrlKey', 'metaKey', 'shiftKey']) Object.defineProperty(copy, key, { value: event[key] });
+    } else {
+      const point = mapPoint(event, rect);
+      const EventClass = event.type === 'pointermove' && window.PointerEvent ? PointerEvent : MouseEvent;
+      copy = new EventClass(event.type, { bubbles: true, cancelable: true, ...point,
+        button: event.button, buttons: event.buttons, pointerId: event.pointerId,
+        pointerType: event.pointerType, pressure: event.pressure,
+        altKey: event.altKey, ctrlKey: event.ctrlKey, metaKey: event.metaKey, shiftKey: event.shiftKey,
+      });
+      Object.defineProperty(copy, 'movementX', { value: event.movementY / rect.height * rect.width });
+      Object.defineProperty(copy, 'movementY', { value: -event.movementX / rect.width * rect.height });
+    }
+    forwarded.add(copy);
+    event.stopImmediatePropagation();
+    if (event.cancelable) event.preventDefault();
+    if (event.type === 'touchstart' || event.type === 'mousedown') canvas.focus({ preventScroll: true });
+    canvas.dispatchEvent(copy);
+  }
+  for (const type of ['touchstart', 'touchmove', 'touchend', 'touchcancel']) canvas.addEventListener(type, remap, { capture: true, passive: false });
+  for (const type of ['mousedown', 'mouseup', 'pointermove']) window.addEventListener(type, remap, { capture: true, passive: false });
 
   async function requestLandscape() {
     try {
@@ -35,10 +102,10 @@
         if (shell.requestFullscreen) await shell.requestFullscreen({ navigationUI: 'hide' });
         else if (shell.webkitRequestFullscreen) await shell.webkitRequestFullscreen();
       }
-    } catch (_) { /* The windowed and home-screen routes remain available. */ }
+    } catch (_) { /* Continue in the available viewport. */ }
     try {
       if (screen.orientation && screen.orientation.lock) await screen.orientation.lock('landscape');
-    } catch (_) { /* Manual device rotation is required on unsupported browsers. */ }
+    } catch (_) { /* CSS rotation remains active whenever the viewport is portrait. */ }
     updateLayout();
     canvas.focus({ preventScroll: true });
   }
@@ -53,15 +120,15 @@
 
   fullButton.addEventListener('click', () => begin(true));
   windowButton.addEventListener('click', () => begin(false));
-  document.getElementById('rotate-fullscreen').addEventListener('click', requestLandscape);
   toggle.addEventListener('click', requestLandscape);
   addEventListener('resize', updateLayout);
   addEventListener('orientationchange', updateLayout);
   document.addEventListener('fullscreenchange', updateLayout);
   document.addEventListener('webkitfullscreenchange', updateLayout);
   if (window.visualViewport) window.visualViewport.addEventListener('resize', updateLayout);
-  document.getElementById('fullscreen-help').textContent = canFullscreen() ? '전체화면을 나갔다면 화면 위의 전체화면 버튼으로 다시 전환할 수 있어요.' : homeHelp;
-  document.getElementById('rotate-help').textContent = canFullscreen() ? '자동으로 전환되지 않으면 기기를 직접 가로로 돌려주세요.' : homeHelp;
+  document.getElementById('fullscreen-help').textContent = canFullscreen()
+    ? '시작하면 전체화면과 가로 전환을 시도합니다. 지원되지 않으면 게임 화면을 가로로 맞춥니다.'
+    : '가로 게임 화면으로 시작합니다. iPhone은 Safari의 공유 → 홈 화면에 추가로 주소줄 없이 실행할 수 있어요.';
   updateLayout();
 
   const missing = Engine.getMissingFeatures({ threads: GODOT_THREADS_ENABLED });

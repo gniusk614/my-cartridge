@@ -4,9 +4,13 @@
 
 ## 모바일에서 열기
 
-https://gniusk614.github.io/my-cartridge/ 주소를 휴대폰 Safari 또는 Chrome에서 열고 `가로 전체화면으로 시작`을 누른다. 가로 잠금을 지원하지 않는 브라우저에서는 기기를 직접 돌린다. iPhone에서 주소줄 없이 실행하려면 Safari의 공유 메뉴에서 홈 화면에 추가한 뒤 아이콘으로 실행한다. 첫 로딩에는 약 45 MiB의 압축 전 파일을 내려받으므로 네트워크 상황에 따라 시간이 걸릴 수 있다. 왼쪽 패드로 이동하고 오른쪽 점프·앉기·공격·살피기 버튼을 사용한다. 게임 안의 `시작 / 이어하기`로 시작한다.
+https://gniusk614.github.io/my-cartridge/ 주소를 휴대폰 Safari 또는 Chrome에서 열고 `게임 시작`을 누른다. 이 사용자 제스처 안에서 전체화면을 요청하고 이어서 가로 잠금을 요청한다. 거부되거나 지원되지 않아도 시작하며, 세로 뷰포트에서는 게임 표면을 시계 방향 90도로 회전한다. 별도 회전 안내 화면이나 방향 전환에 따른 강제 일시정지는 없다. `현재 화면으로 시작`은 전체화면 요청을 생략하되 같은 가로 게임 배치를 사용한다.
 
-현재 91개의 Godot 자동 검사와 웹 셸 검사 8개가 통과했고, 세 팩을 순환하는 실제 물리·입력 기반 봇 완주 10회를 확인했다. 실기기에서 이동과 점프/공격 동시 터치, 회전, 앱 복귀, 저장 후 새로고침을 확인해야 한다. 웹사이트의 저장은 기기·브라우저마다 별개이며 로컬 개발 주소의 저장을 자동 이전하지 않는다.
+왼쪽 아래 영역에 닿은 지점에서 조이스틱이 나타난다. 16% 데드존 바깥으로 밀면 기울기에 따라 기존 최대 이동 속도까지 연속적으로 변한다. 오른쪽 아래 큰 공격 버튼과 위쪽 점프, 왼쪽 위 살피기를 함께 누를 수 있다. 앉기는 K/Ctrl 키로만 제공한다. 게임 안의 `시작 / 이어하기`로 진행한다.
+
+iPhone에서 주소줄 없이 실행하려면 Safari의 공유 메뉴에서 홈 화면에 추가한 뒤 아이콘으로 실행한다. 최초 로딩은 약 45 MiB의 압축 전 파일 크기이며 네트워크에 따라 시간이 걸린다. 저장은 기기·브라우저·주소마다 별개다.
+
+Godot 자동 검사 101개, 웹 셸 검사 15개와 세 팩을 순환한 실제 물리·입력 봇 완주 10회를 통과했다. Chrome 모바일 에뮬레이션에서 가로 및 세로 회전 대체 화면의 메뉴, 이동+점프+공격 3점 터치, 취소·회전을 확인했다. Playwright WebKit에서도 실제 메뉴 탭과 합성 다중 터치 이벤트의 게임 동작을 확인했다. 실기기의 조작감, 브라우저 주소줄, 노치, 오디오, 앱 복귀 및 IndexedDB 저장 지속성은 별도 검증 대상이다.
 
 ## 코드 구조
 
@@ -14,7 +18,8 @@ https://gniusk614.github.io/my-cartridge/ 주소를 휴대폰 Safari 또는 Chro
 - game/scripts/gameplay: 퀘스트, 전투 판정, 거리 발판과 카페 내부.
 - game/scripts/data: 허용된 팩 로드, 스키마와 참조 검증.
 - game/scripts/save: 팩별 저장 및 복원.
-- game/scripts/ui: HUD, 팝업과 멀티터치 버튼.
+- game/scripts/ui: HUD·팝업, 플로팅 조이스틱과 포인터별 원형 액션 버튼. MobileInput 자동 로드는 키보드와 독립적인 아날로그 벡터만 보관한다.
+- game/web: 시작 제스처·전체화면·가로 잠금, 회전 대체·역변환 터치 좌표와 CSS 안전영역.
 - schemas 및 examples: 정규 데이터 계약과 가상 샘플.
 
 ## 변경 후 배포
@@ -26,6 +31,7 @@ mkdir -p build/web
 bash tools/godot.sh --headless --export-release Web ../build/web/index.html
 python3 tools/prepare_web.py
 python3 tools/check_content.py
+node --test tools/test_web_shell.mjs
 git add .
 git commit -m "Update game and tested web export"
 git push origin main
@@ -34,3 +40,7 @@ git push origin main
 빌드된 Web 파일은 web/에 보관하고 GitHub Actions가 검사 후 Pages에 배포한다. prepare_web.py는 게임 소스와 에셋의 해시를 기록한다. 소스만 바뀌고 내보내기가 갱신되지 않으면 배포 검사가 실패한다. CI에서 Godot 런타임 전체를 설치하거나 물리 완주 검사를 다시 실행하지는 않으므로 위 로컬 검사를 먼저 수행해야 한다.
 
 GitHub Pages 주소가 모든 사람에게 열려 있으므로 실제 고객의 개인 정보나 사연을 공개 샘플 팩에 넣지 않는다. 고객별 접근 제어는 향후 플랫폼 단계에서 구현한다.
+
+## 모바일 변경 시 확인
+
+입력 구현과 회귀 범위는 [MOBILE_UX.md](MOBILE_UX.md)를 따른다. 웹 셸의 CSS 회전만 바꾸고 터치 역변환이나 `canvas_resize_policy=0`을 누락하면 표시와 입력 좌표가 어긋난다. `tools/test_web_shell.mjs`는 이 연결, DPR, 안전영역 축 교환, 터치 ID 보존을 검사한다. Godot 테스트는 실제 InputEventScreenTouch/Drag를 뷰포트에 보내 이동 물리와 동시 액션을 검사한다.
