@@ -1,6 +1,6 @@
-# 게임팩 데이터 계약 1.1
+# 게임팩 데이터 계약 1.2
 
-정규 계약은 `schemas/game_pack.schema.json`이며 실행용 복사본은 `game/content/game_pack.schema.json`이다. 스튜디오는 같은 스키마를 받아 검증한다. 기존 1.0.0 샘플 세 개를 유지하고 맞춤형 제작은 1.1.0을 사용한다. 제작 흐름은 [EPISODE_ENGINE.md](EPISODE_ENGINE.md)를 따른다.
+정규 계약은 `schemas/game_pack.schema.json`이며 실행용 복사본은 `game/content/game_pack.schema.json`이다. 스튜디오는 같은 스키마를 받아 검증한다. 기존 1.0.0 샘플 세 개를 유지하고 기존 맞춤형 1.1.0도 유지하며 새 제작은 1.2.0을 사용한다. 제작 흐름은 [EPISODE_ENGINE.md](EPISODE_ENGINE.md)를 따른다.
 
 ## 공통 원칙
 
@@ -12,7 +12,7 @@
 
 | 항목 | 제약과 의미 |
 |---|---|
-| schema_version | 기존 `1.0.0` 또는 맞춤형 `1.1.0` |
+| schema_version | 기존 `1.0.0`·`1.1.0` 또는 새 맞춤형 `1.2.0` |
 | pack_id | 영문 소문자로 시작하는 소문자·숫자·밑줄, 최대 64자. 고객별·에피소드별 구분 |
 | pack_revision | 1~9999. 현재는 같은 개정의 저장만 적용 |
 | characters | 2~16명. player 1명, missing(이야기의 상대) 1명, 나머지 npc |
@@ -43,9 +43,15 @@ maps는 최대 8개다. id·name·theme·width·spawn·door·surfaces·npcs를 �
 
 NPC는 character_id·position·text로 정의한다. player 역할을 NPC로 배치하지 않는다. NPC는 피격 영역을 제거하고 이동 AI를 끈 대화 인물이며, 일반 전투 적과 분리한다. 출입구의 공통 실내 편지방은 현재 고정 구조다.
 
+## 장식 박스와 이미지
+
+1.2.0의 maps[].props는 선택 배열이며 최대 64개다. 각 항목의 id·name·position·width·height·layer·flip_x를 저장한다. asset_key가 없으면 기본 회색 박스이며, 지정하면 prop PNG에 연결한다. 캐릭터·목표·맵 등과 같은 전역 ID 중복 검사에 포함한다. 장식에는 충돌·전투·상호작용 판정이 없다.
+
+position은 이미지 아래 중앙이다. 너비 4~256, 높이 4~180이며 이미지 전체가 x 0~맵 너비, y 0~180 안에 있어야 한다. layer는 behind(캐릭터 뒤)/front(캐릭터 앞), flip_x는 좌우 반전이다. 장식 이미지는 바깥 장면에서만 표시하고 공통 실내에서는 숨긴다. 기본 박스와 PNG 모두 같은 저장·미리보기·ZIP 경로를 사용한다. 그림 교체는 배치 정보를 바꾸지 않는다.
+
 ## PNG 에셋과 스프라이트
 
-assets는 최대 32개이며 각 항목에 id·kind·width·height·png_base64를 넣는다. kind는 portrait/sprite_sheet/background다. 한 변은 최대 2048, PNG base64 한 항목은 최대 2,000,000자, 전체는 12,000,000자·8,388,608픽셀 이하다. 게임팩 가져오기는 전체 JSON 16,000,000자 이하로 제한한다.
+assets는 최대 32개이며 각 항목에 id·kind·width·height·png_base64를 넣는다. kind는 portrait/sprite_sheet/background/prop이다. 선택 항목 name은 보관함 표시 이름(1~80자)이다. 한 변은 최대 2048, PNG base64 한 항목은 최대 2,000,000자, 전체는 12,000,000자·8,388,608픽셀 이하다. 게임팩 가져오기는 전체 JSON 16,000,000자 이하로 제한한다.
 
 런타임은 PNG 시그니처와 IHDR 크기를 검사해 선언 크기와 일치하는지 확인하고 실제 PNG 디코드까지 검사한다. 압축 전 이미지 한도를 넘는 입력을 디코드하지 않는다. PNG 아닌 데이터·깨진 이미지·다른 kind의 참조는 거부한다.
 

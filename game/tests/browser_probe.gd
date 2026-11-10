@@ -42,6 +42,9 @@ func snapshot(_arguments: Array) -> void:
 		data.map_id = game.stage.map_data.get("id", "winter_street")
 		data.world_width = game.stage.world_width
 		data.asset_count = AssetLibrary.textures.size()
+		data.props = []
+		for prop in game.stage.prop_sprites:
+			data.props.append({"id": str(prop.name), "asset_key": prop.get_meta("asset_key"), "position": point(prop.position), "size": point(prop.texture.get_size() * prop.scale), "front": prop.z_index == 2})
 		data.clues = game.quest.available_clues()
 		data.complete = game.quest.is_complete()
 		for actor in game.actors.get_children():

@@ -3,7 +3,7 @@ import { readFile, mkdir } from 'node:fs/promises';
 import { execFileSync } from 'node:child_process';
 import { createServer } from 'node:http';
 import { resolve, sep, extname } from 'node:path';
-import { createEpisode, addScene, syncCombat, validateEpisode } from '../../studio/core.js';
+import { createEpisode, addScene, syncCombat, validateEpisode, createProp } from '../../studio/core.js';
 import { readFileSync } from 'node:fs';
 test.use({ deviceScaleFactor: 1, isMobile: false, hasTouch: false });
 const schema = JSON.parse(readFileSync(new URL('../../schemas/game_pack.schema.json', import.meta.url), 'utf8'));
@@ -17,6 +17,8 @@ function storyEpisode() {
     chapter.objectives[0].position = { x: 65, y: 130 };
     const map = pack.maps[i]; map.width = 640; map.spawn = { x: 60, y: 130 }; map.door = { x: 100, y: 130 }; map.surfaces = [];
   });
+  const asset = { id: 'delivery_prop', name: '기본 소품', kind: 'prop', width: 192, height: 192, png_base64: readFileSync(new URL('../../game/web/static/icon-192.png', import.meta.url)).toString('base64') };
+  pack.assets.push(asset); pack.maps.forEach(m => m.props.push(createProp(asset, { x: 400, y: 140 }, m.width)));
   return pack;
 }
 async function openStudio(page, base = '') {
@@ -65,11 +67,12 @@ async function interact(frame, key, value) {
 test('studio converts a local image, generates sprites, validates and roundtrips JSON drafts', async ({ page }) => {
   await openStudio(page);
   await page.locator('[data-tab="map"]').click();
+  await page.locator('.precise-tools summary').click();
   await page.locator('[data-tool="npc"]').click();
-  const box = await page.locator('#map-canvas').boundingBox();
+  let box = await page.locator('#map-canvas').boundingBox();
   const scale = box.width / 960;
   await page.locator('#map-canvas').click({ position: { x: 500 * scale, y: 130 * scale } });
-  await page.locator('[data-entity="npc:0"]').click();
+  box = await page.locator('#map-canvas').boundingBox();
   await page.mouse.move(box.x + 500 * scale, box.y + 113 * scale);
   await page.mouse.down(); await page.mouse.move(box.x + 540 * scale, box.y + 113 * scale, { steps: 6 }); await page.mouse.up();
   await expect(page.locator('[data-path="maps.0.npcs.0.position.x"]')).toHaveValue('540');
@@ -142,4 +145,98 @@ test('delivery ZIP contains a standalone player that automatically loads the cus
     expect(await page.evaluate(() => typeof window.myCartridgeTestSnapshot)).toBe('undefined');
     await page.locator('#launch-windowed').click();
   } finally { await page.goto('about:blank'); await new Promise(resolve => server.close(resolve)); }
+});
+
+async function downloadPack(page) {
+  const promised = page.waitForEvent('download'); await page.locator('#export-json').click();
+  return JSON.parse(await readFile(await (await promised).path(), 'utf8'));
+}
+async function imageFixture(page, name = '여행 간판.png') {
+  const data = await page.evaluate(() => { const c = document.createElement('canvas'); c.width = 64; c.height = 48; const x = c.getContext('2d'); x.fillStyle = '#4b7b65'; x.fillRect(8, 0, 48, 35); x.fillStyle = '#ffe3a0'; x.fillRect(14, 8, 36, 15); x.fillStyle = '#997451'; x.fillRect(28, 30, 8, 18); return c.toDataURL('image/png').split(',')[1]; });
+  return { name, mimeType: 'image/png', buffer: Buffer.from(data, 'base64') };
+}
+
+test('placeholder boxes accept reusable artwork without moving, and undo, JSON and the real game preserve it', async ({ page }) => {
+  await openStudio(page); await page.locator('[data-tab="map"]').click();
+  await page.locator('[data-add="prop"]').click();
+  await expect(page.locator('#object-properties')).toContainText('박스를 이미지로 바꾸기');
+  let pack = await downloadPack(page), box = pack.maps[0].props[0];
+  expect(box.asset_key).toBeUndefined(); expect([box.width, box.height]).toEqual([48, 48]);
+  const original = { ...box.position };
+  await page.locator('#object-image-file').setInputFiles(await imageFixture(page));
+  await expect(page.locator('#issue-count')).toHaveText('준비 완료');
+  await expect(page.getByRole('button', { name: '여행 간판 그림 적용', exact: true })).toBeVisible();
+  pack = await downloadPack(page); box = pack.maps[0].props[0]; const assetId = box.asset_key;
+  expect(box.position).toEqual(original); expect([box.width, box.height]).toEqual([48, 48]);
+  expect(pack.assets.find(a => a.id === assetId).name).toBe('여행 간판');
+  await page.locator('.object-geometry summary').click();
+  await page.locator('[data-path="maps.0.props.0.width"]').fill('64'); await page.locator('[data-path="maps.0.props.0.width"]').press('Tab');
+  await page.locator('[data-path="maps.0.props.0.flip_x"]').check();
+  await page.locator('[data-path="maps.0.props.0.layer"]').selectOption('front');
+  await page.getByRole('button', { name: '나무 그림 적용', exact: true }).click();
+  expect((await downloadPack(page)).maps[0].props[0].position).toEqual(original);
+  await page.locator('[data-action="undo"]').click();
+  pack = await downloadPack(page); expect(pack.maps[0].props[0].asset_key).toBe(assetId);
+  // Re-select after undo, then clone and delete independently of the shared image.
+  await page.locator('.object-details summary').click(); await page.locator('[data-entity="prop:0"]').click();
+  await page.locator('[data-action="duplicate-object"]').click();
+  expect((await downloadPack(page)).maps[0].props).toHaveLength(2);
+  await page.locator('[data-action="undo"]').click(); expect((await downloadPack(page)).maps[0].props).toHaveLength(1);
+  await page.locator('[data-action="redo"]').click(); expect((await downloadPack(page)).maps[0].props).toHaveLength(2);
+  await page.locator('.object-details summary').click(); await page.locator('[data-entity="prop:1"]').click();
+  await page.locator('[data-action="delete-object"]').click();
+  pack = await downloadPack(page); expect(pack.maps[0].props).toHaveLength(1); expect(validateEpisode(pack, schema)).toEqual([]);
+  await page.reload(); await expect(page.locator('#save-state')).toContainText('저장됨');
+  const restored = await downloadPack(page); expect(restored.maps[0].props).toEqual(pack.maps[0].props);
+  await page.locator('#preview').click(); await expect(page.locator('#preview-status')).toContainText('실행 중', { timeout: 45_000 });
+  const frame = page.frames().find(f => f.url().includes('studio-preview=1'));
+  const actual = await snapshot(frame); expect(actual.props).toHaveLength(1);
+  expect(actual.props[0]).toMatchObject({ asset_key: assetId, size: [64, 48], front: true, position: [original.x, original.y] });
+});
+
+test('asset library imports multiple pictures, reuses art in scenes and connects backgrounds', async ({ page }) => {
+  await openStudio(page); await page.locator('[data-tab="assets"]').click();
+  const picture = await imageFixture(page);
+  await page.locator('#asset-files').setInputFiles([picture, { ...picture, name: '공원 안내.png' }]);
+  await expect(page.locator('.asset-card')).toHaveCount(4);
+  const card = page.locator('.asset-card').filter({ has: page.getByAltText('여행 간판', { exact: true }) });
+  await card.getByRole('button', { name: '맵에 추가', exact: true }).click();
+  let pack = await downloadPack(page); const id = pack.maps[0].props[0].asset_key;
+  await page.locator('#add-scene').click(); await page.locator('[data-tab="assets"]').click();
+  await page.locator('.asset-card').filter({ has: page.getByAltText('여행 간판', { exact: true }) }).getByRole('button', { name: '맵에 추가', exact: true }).click();
+  pack = await downloadPack(page); expect(pack.maps.map(m => m.props[0].asset_key)).toEqual([id, id]);
+  await page.locator('.asset-grid.compact .asset-card').filter({ has: page.getByAltText('공원 안내', { exact: true }) }).dragTo(page.locator('#map-canvas'), { targetPosition: { x: 300, y: 180 } });
+  expect((await downloadPack(page)).maps[1].props).toHaveLength(2);
+  await page.locator('[data-tab="assets"]').click();
+  await expect(page.locator('.asset-card').filter({ has: page.getByAltText('여행 간판', { exact: true }) }).getByRole('button', { name: '사용 중', exact: true })).toBeDisabled();
+  await page.locator('#asset-kind').selectOption('background'); await page.locator('#asset-files').setInputFiles({ ...picture, name: '여행 배경.png' });
+  await page.locator('.asset-card').filter({ has: page.getByAltText('여행 배경', { exact: true }) }).getByRole('button', { name: '현재 장면 배경으로', exact: true }).click();
+  pack = await downloadPack(page); expect(pack.assets.find(a => a.id === pack.maps[1].background_key).kind).toBe('background');
+  await page.locator('[data-tab="assets"]').click(); await page.locator('#asset-character').selectOption('1');
+  await page.locator('#asset-kind').selectOption('portrait'); await page.locator('#asset-files').setInputFiles({ ...picture, name: '상대 초상화.png' });
+  await page.locator('.asset-card').filter({ has: page.getByAltText('상대 초상화', { exact: true }) }).getByRole('button', { name: '선택한 인물 초상화로', exact: true }).click();
+  await page.locator('[data-tab="assets"]').click(); await page.locator('#asset-character').selectOption('0');
+  await page.locator('#asset-kind').selectOption('sprite_sheet'); await page.locator('#asset-files').setInputFiles({ ...picture, name: '주인공 시트.png' });
+  await page.locator('.asset-card').filter({ has: page.getByAltText('주인공 시트', { exact: true }) }).getByRole('button', { name: '선택한 인물 동작으로', exact: true }).click();
+  pack = await downloadPack(page);
+  expect(pack.assets.find(a => a.id === pack.characters[1].portrait_key).kind).toBe('portrait');
+  expect(pack.assets.find(a => a.id === pack.characters[0].sprite_key).name).toBe('주인공 시트');
+  expect(validateEpisode(pack, schema)).toEqual([]);
+});
+
+test.describe('compact authoring' , () => {
+  test.use({ viewport: { width: 600, height: 900 }, hasTouch: true, isMobile: true });
+  test('touch adds a box and swaps art beside the map without coordinate entry', async ({ page }) => {
+    await page.goto('/studio/'); await expect(page.locator('#save-state')).toContainText('저장됨');
+    await page.locator('[data-tab="map"]').tap(); await page.locator('[data-add="prop"]').tap();
+    await expect(page.locator('#object-properties')).toContainText('장식 박스');
+    await page.getByRole('button', { name: '벤치 그림 적용', exact: true }).tap();
+    await expect(page.locator('#issue-count')).toHaveText('준비 완료');
+    const pack = await downloadPack(page); expect(pack.maps[0].props[0].asset_key).toBe('starter_bench');
+    expect(pack.maps[0].props[0].width).toBe(48);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await page.locator('[data-action="undo"]').tap();
+    expect((await downloadPack(page)).maps[0].props[0].asset_key).toBeUndefined();
+    await page.locator('#scene-picker').selectOption('0');
+  });
 });

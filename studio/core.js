@@ -11,7 +11,7 @@ export function createMap(id = 'map_01', theme = 'winter_street') {
   return { id, name: '첫 만남의 거리', theme, width: 960, spawn: { x: 60, y: 130 }, door: { x: 909, y: 133 }, surfaces: [
     { id: 'crate', x: 300, y: 104, width: 32, depth: 17, height: 16 },
     { id: 'balcony', x: 355, y: 104, width: 160, depth: 17, height: 50 },
-  ], npcs: [], palette: { ...THEMES[theme] } };
+  ], npcs: [], props: [], palette: { ...THEMES[theme] } };
 }
 export function createScene(index = 1, mapId = `map_${String(index).padStart(2, '0')}`) {
   const id = `scene_${index}`;
@@ -24,7 +24,7 @@ export function createClue(index) {
   return { id: `scene_${index}_clue`, name: '함께 남긴 기억', text: '그날의 작은 약속을 기억하나요?', memory: '{{player}}와 {{missing}}가 함께 웃었던 순간.', asset_key: 'clue_photo', speaker_id: 'companion' };
 }
 export function createEpisode() {
-  return { schema_version: '1.1.0', pack_id: uid('episode'), pack_revision: 1,
+  return { schema_version: '1.2.0', pack_id: uid('episode'), pack_revision: 1,
     meta: { title: '우리만의 에피소드', locale: 'ko-KR', duration_minutes: 3 },
     characters: [{ id: 'hero', name: '주인공', role: 'player', sprite_key: 'hero_base', appearance: { skin: '#f4cdb3', hair: '#272945', coat: '#6bb8c4', pants: '#252941', scarf: '#f6c77e', hair_style: 'short' } },
       { id: 'companion', name: '소중한 사람', role: 'missing', sprite_key: 'missing_base', appearance: { skin: '#e8b998', hair: '#453247', coat: '#d397a9', pants: '#343449', scarf: '#e5cba1', hair_style: 'long' } }],
@@ -41,11 +41,11 @@ export function addScene(pack) {
 }
 export function upgrade(pack) {
   const result = clone(pack);
-  result.schema_version = '1.1.0'; result.assets ??= []; result.maps ??= [];
+  result.schema_version = '1.2.0'; result.assets ??= []; result.maps ??= [];
   result.chapters.forEach((chapter, i) => {
     if (!chapter.map_id) { const map = createMap(`map_${String(i + 1).padStart(2, '0')}`); result.maps.push(map); chapter.map_id = map.id; }
   });
-  result.maps.forEach(map => { map.palette = { ...THEMES[map.theme], ...map.palette }; });
+  result.maps.forEach(map => { map.palette = { ...THEMES[map.theme], ...map.palette }; map.props ??= []; });
   result.characters.forEach(character => { character.appearance = { ...DEFAULT_APPEARANCE, ...character.appearance }; });
   return result;
 }
@@ -62,6 +62,22 @@ export function syncCombat(chapter) {
 export function putAsset(pack, asset) {
   const index = pack.assets.findIndex(a => a.id === asset.id);
   if (index >= 0) pack.assets[index] = asset; else pack.assets.push(asset);
+}
+export function clampProp(prop, width) {
+  prop.width = Math.max(4, Math.min(256, prop.width)); prop.height = Math.max(4, Math.min(180, prop.height));
+  prop.position.x = Math.max(prop.width / 2, Math.min(width - prop.width / 2, prop.position.x));
+  prop.position.y = Math.max(prop.height, Math.min(180, prop.position.y));
+  return prop;
+}
+export function createProp(asset, at, width) {
+  if (!asset) return clampProp({ id: uid('prop'), name: '장식 박스', position: { ...at }, width: 48, height: 48, layer: 'behind', flip_x: false }, width);
+  const scale = Math.min(1, 80 / Math.max(asset.width, asset.height));
+  return clampProp({ id: uid('prop'), name: asset.name || '장식 이미지', asset_key: asset.id, position: { ...at }, width: Math.max(4, Math.round(asset.width * scale)), height: Math.max(4, Math.round(asset.height * scale)), layer: 'behind', flip_x: false }, width);
+}
+export function assetReferences(pack, id) {
+  return pack.characters.reduce((n, c) => n + Number(c.sprite_key === id) + Number(c.portrait_key === id), 0)
+    + pack.maps.reduce((n, m) => n + Number(m.background_key === id) + (m.props || []).filter(p => p.asset_key === id).length, 0)
+    + pack.chapters.reduce((n, c) => n + c.enemies.filter(e => e.sprite_key === id).length, 0);
 }
 export function validateEpisode(pack, schema) {
   const errors = [];
@@ -88,6 +104,7 @@ export function validateEpisode(pack, schema) {
   }
   check(pack, schema, 'episode');
   if (errors.length) return errors;
+  if (pack.schema_version !== '1.2.0' && ((pack.assets || []).some(a => a.kind === 'prop') || (pack.maps || []).some(m => m.props?.length))) errors.push('장식 에셋은 스키마 1.2.0을 사용합니다');
   const ids = new Set();
   const unique = id => { if (ids.has(id)) errors.push(`${id}: 중복 ID`); ids.add(id); };
   const graph = (items, key, label) => {
@@ -133,6 +150,10 @@ export function validateEpisode(pack, schema) {
     for (const npc of map.npcs) {
       if (!pack.characters.some(c => c.id === npc.character_id && c.role !== 'player')) errors.push(`${map.id}: 등장인물 연결 확인`);
       point(npc.position, map.width, map.id);
+    }
+    for (const prop of map.props || []) {
+      unique(prop.id); if (prop.asset_key) assetRef(prop.asset_key, 'prop');
+      if (prop.position.x - prop.width / 2 < 0 || prop.position.x + prop.width / 2 > map.width || prop.position.y - prop.height < 0) errors.push(`${prop.name}: 장식 이미지가 맵 밖입니다`);
     }
     if (map.background_key) assetRef(map.background_key, 'background');
   }

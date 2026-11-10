@@ -1,4 +1,4 @@
-import { STATES } from './core-df0988fbe09e.js';
+import { STATES } from './core-2aa61d3663df.js';
 
 // Median-cut palette quantization. It changes raster style, not anatomy or poses.
 export function quantize(rgba, colors = 16) {

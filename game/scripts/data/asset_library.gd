@@ -2,6 +2,18 @@ extends Node
 
 var textures: Dictionary = {}
 var definitions: Dictionary = {}
+var placeholder: Texture2D
+
+func placeholder_texture() -> Texture2D:
+	if placeholder == null:
+		var image := Image.create(16, 16, false, Image.FORMAT_RGBA8)
+		image.fill(Color("7d8c9c"))
+		for y in 16:
+			for x in 16:
+				if x == 0 or y == 0 or x == 15 or y == 15: image.set_pixel(x, y, Color("dbe2e5"))
+				elif (floori(x / 4.0) + floori(y / 4.0)) % 2 == 0: image.set_pixel(x, y, Color("8899a8"))
+		placeholder = ImageTexture.create_from_image(image)
+	return placeholder
 
 func configure(pack: Dictionary) -> void:
 	textures.clear()

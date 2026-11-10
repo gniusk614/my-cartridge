@@ -9,6 +9,11 @@ func validate(data: Variant) -> Array:
 	if not errors.is_empty(): return errors
 	if data.schema_version == "1.0.0" and (data.chapters.size() != 1 or data.has("maps") or data.has("assets")):
 		errors.append("schema_version: customization requires 1.1.0")
+	if data.schema_version != "1.2.0":
+		for asset in data.get("assets", []):
+			if asset.kind == "prop": errors.append("schema_version: props require 1.2.0")
+		for map in data.get("maps", []):
+			if not map.get("props", []).is_empty(): errors.append("schema_version: props require 1.2.0")
 	var ids: Dictionary = {}
 	var clues: Array = []
 	var players := 0
@@ -162,6 +167,11 @@ func validate_customization(data: Dictionary, ids: Dictionary, errors: Array) ->
 		for npc in map.npcs:
 			if not characters.has(npc.character_id) or characters[npc.character_id].role == "player": errors.append(map.id + ": invalid NPC reference")
 			check_point(npc.position, map.width, map.id, errors)
+		for prop in map.get("props", []):
+			unique(prop.id, ids, errors)
+			if prop.has("asset_key"): check_asset(prop.asset_key, "prop", assets, errors)
+			if prop.position.x - prop.width / 2.0 < 0 or prop.position.x + prop.width / 2.0 > map.width or prop.position.y - prop.height < 0:
+				errors.append(prop.id + ": decoration outside map")
 		if map.has("background_key"): check_asset(map.background_key, "background", assets, errors)
 	for chapter in data.chapters:
 		var width := 960

@@ -2,6 +2,7 @@ extends Node2D
 
 var clock := 0.0
 var map_data: Dictionary = {}
+var prop_sprites: Array = []
 var world_width := 960.0
 var spawn := Vector2(60, 130)
 var door_position := Vector2(909, 133)
@@ -17,6 +18,22 @@ func configure(data: Dictionary) -> void:
 	surfaces = []
 	for item in data.surfaces:
 		surfaces.append({"id": item.id, "footprint": Rect2(item.x, item.y, item.width, item.depth), "height": float(item.height)})
+	for prop in data.get("props", []):
+		var sprite := Sprite2D.new()
+		sprite.texture = AssetLibrary.texture(prop.get("asset_key", "")) if prop.has("asset_key") else AssetLibrary.placeholder_texture()
+		if sprite.texture == null:
+			sprite.free()
+			continue
+		sprite.name = prop.id
+		sprite.set_meta("asset_key", prop.get("asset_key", ""))
+		sprite.position = Vector2(prop.position.x, prop.position.y)
+		sprite.offset.y = -sprite.texture.get_height() / 2.0
+		sprite.scale = Vector2(float(prop.width) / sprite.texture.get_width(), float(prop.height) / sprite.texture.get_height())
+		sprite.flip_h = prop.flip_x
+		sprite.z_index = 2 if prop.layer == "front" else 0
+		sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+		add_child(sprite)
+		prop_sprites.append(sprite)
 
 var clue_positions: Array = []
 var exit_active := false
@@ -31,6 +48,7 @@ const LETTER_DESK := Vector2(251, 117)
 
 func _process(delta: float) -> void:
 	if GameSession.state == "PLAYING": clock += delta
+	for sprite in prop_sprites: sprite.visible = not indoors
 	queue_redraw()
 
 func _draw() -> void:

@@ -400,7 +400,7 @@ func test_browser_suspend() -> void:
 
 func test_custom_episode() -> void:
 	var pack: Dictionary = loader.load_pack(loader.PACKS[0]).duplicate(true)
-	pack.schema_version = "1.1.0"
+	pack.schema_version = "1.2.0"
 	pack.pack_id = "test_custom_episode"
 	var image := Image.create(32, 48, false, Image.FORMAT_RGBA8)
 	image.fill(Color("8bd1bf"))
@@ -409,6 +409,7 @@ func test_custom_episode() -> void:
 		{"id": "custom_avatar", "kind": "sprite_sheet", "width": 32, "height": 48, "png_base64": png,
 		"frame_width": 32, "frame_height": 48, "animations": {"idle": {"row": 0, "frames": 1, "fps": 8}, "move": {"row": 0, "frames": 1, "fps": 8}, "attack": {"row": 0, "frames": 1, "fps": 8}}},
 		{"id": "custom_portrait", "kind": "portrait", "width": 32, "height": 48, "png_base64": png},
+		{"id": "custom_decoration", "name": "우리의 벤치", "kind": "prop", "width": 32, "height": 48, "png_base64": png},
 	]
 	pack.characters[0].sprite_key = "custom_avatar"
 	pack.characters[0].portrait_key = "custom_portrait"
@@ -417,13 +418,24 @@ func test_custom_episode() -> void:
 		{"id": "custom_map_1", "name": "공원", "theme": "garden", "width": 800, "spawn": {"x": 80, "y": 130}, "door": {"x": 760, "y": 133}, "surfaces": [{"id": "step", "x": 300, "y": 104, "width": 32, "depth": 16, "height": 16}], "npcs": [{"character_id": "missing", "position": {"x": 120, "y": 130}, "text": "안녕 {{player}}"}]},
 		{"id": "custom_map_2", "name": "노을", "theme": "sunset", "width": 640, "spawn": {"x": 70, "y": 130}, "door": {"x": 580, "y": 133}, "surfaces": [], "npcs": []},
 	]
+	pack.maps[0].props = [{"id": "placed_bench", "name": "벤치", "asset_key": "custom_decoration", "position": {"x": 190, "y": 130}, "width": 40, "height": 60, "layer": "front", "flip_x": true}, {"id": "empty_box", "name": "미완성 박스", "position": {"x": 240, "y": 130}, "width": 48, "height": 48, "layer": "behind", "flip_x": false}]
+	var legacy_custom: Dictionary = pack.duplicate(true)
 	pack.chapters[0].map_id = "custom_map_1"
 	pack.clues.append({"id": "second_memory", "name": "두 번째 기억", "text": "우리의 기억", "memory": "{{hero}}의 이야기", "asset_key": "clue_photo", "speaker_id": "hero"})
 	pack.chapters.append({"id": "second_scene", "title": "두 번째 장면", "intro": "새로운 장소", "template": "winter_street", "map_id": "custom_map_2", "mechanics": ["collect"], "enemies": [], "objectives": [{"id": "second_goal", "type": "collect_clue", "target": "second_memory", "count": 1, "depends_on": [], "position": {"x": 470, "y": 130}}]})
+	legacy_custom = pack.duplicate(true)
+	legacy_custom.schema_version = "1.1.0"
+	legacy_custom.assets.pop_back()
+	legacy_custom.maps[0].erase("props")
+	expect(loader.validator.validate(legacy_custom).is_empty(), "existing 1.1 episode remains supported")
 	expect(loader.validator.validate(pack).is_empty(), "custom episode accepts maps portraits sprites NPCs and peaceful next scene")
-	for mutation in ["map", "sprite", "dimensions", "animation", "boundary", "duplicate"]:
+	for mutation in ["map", "sprite", "dimensions", "animation", "boundary", "duplicate", "prop_kind", "prop_bounds", "prop_duplicate", "prop_version"]:
 		var bad: Dictionary = pack.duplicate(true)
 		match mutation:
+			"prop_kind": bad.maps[0].props[0].asset_key = "custom_portrait"
+			"prop_bounds": bad.maps[0].props[0].position.x = 0
+			"prop_duplicate": bad.maps[0].props[1].id = "placed_bench"
+			"prop_version": bad.schema_version = "1.1.0"
 			"map": bad.chapters[1].map_id = "missing_map"
 			"sprite": bad.characters[0].sprite_key = "custom_portrait"
 			"dimensions": bad.assets[0].width = 64
@@ -437,6 +449,11 @@ func test_custom_episode() -> void:
 	game.play()
 	expect(game.stage.world_width == 800 and game.player.position == Vector2(80, 130), "custom map controls bounds and spawn")
 	expect(game.player.sprite_key == "custom_avatar" and root.get_node("AssetLibrary").texture("custom_avatar") != null, "custom PNG sprite reaches player renderer")
+	expect(game.stage.prop_sprites.size() == 2, "image decoration and empty placeholder reach renderer")
+	var placed = game.stage.prop_sprites[0]
+	expect(placed.get_meta("asset_key") == "custom_decoration" and placed.flip_h and placed.z_index == 2, "prop art flip and layer are applied")
+	expect(placed.scale == Vector2(1.25, 1.25) and placed.position == Vector2(190, 130), "prop keeps authored fractional size and position")
+	expect(game.stage.prop_sprites[1].texture != null and game.stage.prop_sprites[1].get_meta("asset_key") == "", "placeholder plays without a registered image")
 	expect(session.story_text("{{player}} / {{hero}}") == pack.characters[0].name + " / " + pack.characters[0].name, "story placeholders use character names")
 	game.player.position = Vector2(120, 130)
 	game.interact_nearby()
@@ -447,6 +464,9 @@ func test_custom_episode() -> void:
 	game.play()
 	game.player.position = game.stage.door_position
 	game.interact_nearby()
+	await process_frame
+	await process_frame
+	expect(not game.stage.prop_sprites[0].visible, "outside props hide inside the common letter room")
 	game.player.position = game.stage.letter_desk
 	game.interact_nearby()
 	expect(session.state == "CHAPTER_CLEAR" and not session.progress.ending_seen, "intermediate scene leads to next scene rather than final ending")

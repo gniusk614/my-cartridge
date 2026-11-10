@@ -7,7 +7,8 @@
       "type": "string",
       "enum": [
         "1.0.0",
-        "1.1.0"
+        "1.1.0",
+        "1.2.0"
       ]
     },
     "pack_id": {
@@ -620,6 +621,83 @@
             },
             "required": [],
             "additionalProperties": false
+          },
+          "props": {
+            "type": "array",
+            "minItems": 0,
+            "maxItems": 64,
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 64,
+                  "pattern": "^[a-z][a-z0-9_]*$"
+                },
+                "asset_key": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 64,
+                  "pattern": "^[a-z][a-z0-9_]*$"
+                },
+                "name": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 80
+                },
+                "position": {
+                  "type": "object",
+                  "properties": {
+                    "x": {
+                      "type": "number",
+                      "minimum": 0,
+                      "maximum": 1920
+                    },
+                    "y": {
+                      "type": "number",
+                      "minimum": 0,
+                      "maximum": 180
+                    }
+                  },
+                  "required": [
+                    "x",
+                    "y"
+                  ],
+                  "additionalProperties": false
+                },
+                "width": {
+                  "type": "number",
+                  "minimum": 4,
+                  "maximum": 256
+                },
+                "height": {
+                  "type": "number",
+                  "minimum": 4,
+                  "maximum": 180
+                },
+                "layer": {
+                  "type": "string",
+                  "enum": [
+                    "behind",
+                    "front"
+                  ]
+                },
+                "flip_x": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "id",
+                "name",
+                "position",
+                "width",
+                "height",
+                "layer",
+                "flip_x"
+              ],
+              "additionalProperties": false
+            }
           }
         },
         "required": [
@@ -653,7 +731,8 @@
             "enum": [
               "portrait",
               "sprite_sheet",
-              "background"
+              "background",
+              "prop"
             ]
           },
           "width": {
@@ -874,6 +953,11 @@
               "attack"
             ],
             "additionalProperties": false
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80
           }
         },
         "required": [

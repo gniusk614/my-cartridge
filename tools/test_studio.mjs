@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { createEpisode, addScene, upgrade, syncCombat, validateEpisode } from '../studio/core.js';
+import { createEpisode, addScene, upgrade, syncCombat, validateEpisode, createProp, clampProp, assetReferences } from '../studio/core.js';
 import { quantize, removeEdgeBackground } from '../studio/pixel.js';
 import { crc32, zipFiles } from '../studio/zip.js';
 const schema = JSON.parse(readFileSync(new URL('../schemas/game_pack.schema.json', import.meta.url), 'utf8'));
@@ -64,4 +64,37 @@ test('import normalization fills optional authoring controls while keeping expli
   const next = upgrade(pack);
   assert.equal(next.maps[0].palette.sky, '#111e38'); assert.equal(next.characters[0].appearance.coat, '#123456');
   assert.equal(next.characters[0].appearance.skin, '#f4cdb3'); assert.deepEqual(validateEpisode(next, schema), []);
+});
+
+const propImage = () => ({ id: 'own_sign', name: '우리의 표지판', kind: 'prop', width: 1, height: 1, png_base64: 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=' });
+test('reusable decoration references survive another scene and prevent deleting used art', () => {
+  const pack = createEpisode(), asset = propImage(); pack.assets.push(asset); addScene(pack);
+  for (const map of pack.maps) map.props.push(createProp(asset, { x: 200, y: 130 }, map.width));
+  assert.equal(assetReferences(pack, asset.id), 2); assert.deepEqual(validateEpisode(pack, schema), []);
+  assert.notEqual(pack.maps[0].props[0].id, pack.maps[1].props[0].id);
+});
+test('prop placement and resizing keep the complete picture inside the map', () => {
+  const p = createProp({ ...propImage(), width: 200, height: 400 }, { x: -200, y: -1 }, 640);
+  assert.deepEqual([p.width, p.height], [40, 80]); assert.deepEqual(p.position, { x: 20, y: 80 });
+  p.width = 300; p.height = 999; p.position = { x: 700, y: 999 }; clampProp(p, 640);
+  assert.deepEqual([p.width, p.height, p.position.x, p.position.y], [256, 180, 512, 180]);
+});
+test('decoration kind, bounds, duplicate IDs and version are checked before playing', () => {
+  const pack = createEpisode(), asset = propImage(); pack.assets.push(asset); pack.maps[0].props.push(createProp(asset, { x: 100, y: 130 }, 960));
+  for (const change of [p => { p.assets[0].kind = 'portrait'; }, p => { p.maps[0].props[0].position.x = 0; }, p => { p.maps[0].props[0].id = p.characters[0].id; }, p => { p.schema_version = '1.1.0'; }]) {
+    const bad = structuredClone(pack); change(bad); assert.ok(validateEpisode(bad, schema).length);
+  }
+});
+test('1.1 drafts acquire an empty prop collection while retaining story and saves', () => {
+  const old = createEpisode(); old.schema_version = '1.1.0'; delete old.maps[0].props;
+  const next = upgrade(old); assert.equal(next.schema_version, '1.2.0'); assert.deepEqual(next.maps[0].props, []);
+  assert.equal(next.pack_id, old.pack_id); assert.equal(next.pack_revision, old.pack_revision); assert.deepEqual(next.clues, old.clues);
+});
+
+test('a placeholder box can be saved, dressed with art and cleared without moving it', () => {
+  const pack = createEpisode(), box = createProp(null, { x: 220, y: 134 }, 960);
+  pack.maps[0].props.push(box); assert.deepEqual(validateEpisode(pack, schema), []); assert.equal(pack.assets.length, 0);
+  const placement = structuredClone(box), asset = propImage(); pack.assets.push(asset); box.asset_key = asset.id;
+  assert.deepEqual(validateEpisode(pack, schema), []); assert.equal(assetReferences(pack, asset.id), 1);
+  delete box.asset_key; assert.deepEqual(box, placement); assert.deepEqual(validateEpisode(pack, schema), []);
 });
