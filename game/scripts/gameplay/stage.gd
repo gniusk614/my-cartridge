@@ -1,6 +1,23 @@
 extends Node2D
 
 var clock := 0.0
+var map_data: Dictionary = {}
+var world_width := 960.0
+var spawn := Vector2(60, 130)
+var door_position := Vector2(909, 133)
+var room_exit := Vector2(160, 149)
+var letter_desk := Vector2(251, 117)
+
+func configure(data: Dictionary) -> void:
+	map_data = data
+	if data.is_empty(): return
+	world_width = float(data.width)
+	spawn = Vector2(data.spawn.x, data.spawn.y)
+	door_position = Vector2(data.door.x, data.door.y)
+	surfaces = []
+	for item in data.surfaces:
+		surfaces.append({"id": item.id, "footprint": Rect2(item.x, item.y, item.width, item.depth), "height": float(item.height)})
+
 var clue_positions: Array = []
 var exit_active := false
 var indoors := false
@@ -19,6 +36,9 @@ func _process(delta: float) -> void:
 func _draw() -> void:
 	if indoors:
 		draw_interior()
+		return
+	if not map_data.is_empty():
+		draw_custom_exterior()
 		return
 	var view_height := maxf(180, get_viewport().get_visible_rect().size.y)
 	draw_rect(Rect2(0, 0, 960, view_height), Color("111e38"))
@@ -120,3 +140,45 @@ func draw_interior() -> void:
 	draw_rect(Rect2(135, 148, 50, 32), Color("4c3c4a"))
 	draw_rect(Rect2(139, 152, 42, 28), Color("26364e"))
 	draw_string(ThemeDB.fallback_font, Vector2(144, 176), "E  OUT", HORIZONTAL_ALIGNMENT_LEFT, -1, 8, Color("ffe6a9"))
+
+func draw_custom_exterior() -> void:
+	var themes := {
+		"winter_street": ["#111e38", "#7a93ac", "#394f62", "#ffe4a0"],
+		"garden": ["#c4dfde", "#89ad88", "#527765", "#f3c5ad"],
+		"sunset": ["#775575", "#ad8587", "#4f526b", "#ffcf9d"],
+	}
+	var defaults: Array = themes[map_data.theme]
+	var palette: Dictionary = map_data.get("palette", {})
+	var sky := Color(palette.get("sky", defaults[0]))
+	var ground := Color(palette.get("ground", defaults[1]))
+	var building := Color(palette.get("building", defaults[2]))
+	var accent := Color(palette.get("accent", defaults[3]))
+	var height := maxf(180, get_viewport().get_visible_rect().size.y)
+	draw_rect(Rect2(0, 0, world_width, height), sky)
+	var backdrop: Texture2D = AssetLibrary.texture(map_data.get("background_key", ""))
+	if backdrop != null: draw_texture_rect(backdrop, Rect2(0, 0, world_width, 104), false)
+	else:
+		draw_circle(Vector2(265, 27), 13, accent)
+		for x in range(0, int(world_width), 110):
+			if map_data.theme == "garden":
+				draw_rect(Rect2(x + 30, 61, 5, 46), building.darkened(0.25))
+				draw_circle(Vector2(x + 32, 56), 22, building)
+				draw_circle(Vector2(x + 20, 50), 13, building.lightened(0.1))
+			else:
+				draw_rect(Rect2(x, 45, 98, 63), building)
+				for offset in [13, 50]: draw_rect(Rect2(x + offset, 65, 24, 29), accent)
+	draw_rect(Rect2(0, 101, world_width, height - 101), ground.lightened(0.2))
+	draw_rect(Rect2(0, 109, world_width, 51), ground)
+	for x in range(0, int(world_width), 37): draw_rect(Rect2(x, 116 + (x * 13) % 43, 8, 1), ground.lightened(0.2))
+	for surface in surfaces: draw_platform(surface)
+	draw_rect(Rect2(door_position - Vector2(14, 34), Vector2(28, 38)), building.darkened(0.3))
+	draw_rect(Rect2(door_position - Vector2(10, 30), Vector2(20, 30)), accent)
+	draw_rect(Rect2(door_position - Vector2(6, 25), Vector2(12, 14)), building)
+	if exit_active: draw_circle(door_position - Vector2(0, 19), 17, Color(1, 0.9, 0.6, 0.2))
+	for goal in clue_positions:
+		var at := Vector2(goal.position.x, goal.position.y - 12 + roundf(sin(clock * 4) * 2))
+		draw_circle(at, 10, Color(1, 0.87, 0.5, 0.16))
+		draw_rect(Rect2(at - Vector2(4, 5), Vector2(8, 10)), Color("fff1cd"))
+	if map_data.theme == "winter_street":
+		for i in 80:
+			draw_rect(Rect2(fmod(i * 71.0 + clock * 4, world_width), fmod(i * 37.0 + clock * 10, 175), 1, 1), Color(0.93, 0.97, 1, 0.7))

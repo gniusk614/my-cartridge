@@ -6,7 +6,8 @@
     "schema_version": {
       "type": "string",
       "enum": [
-        "1.0.0"
+        "1.0.0",
+        "1.1.0"
       ]
     },
     "pack_id": {
@@ -67,15 +68,55 @@
             "type": "string",
             "enum": [
               "player",
-              "missing"
+              "missing",
+              "npc"
             ]
           },
           "sprite_key": {
             "type": "string",
-            "enum": [
-              "hero_base",
-              "missing_base"
-            ]
+            "minLength": 1,
+            "maxLength": 64,
+            "pattern": "^[a-z][a-z0-9_]*$"
+          },
+          "appearance": {
+            "type": "object",
+            "properties": {
+              "skin": {
+                "type": "string",
+                "pattern": "^#[0-9a-fA-F]{6}$"
+              },
+              "hair": {
+                "type": "string",
+                "pattern": "^#[0-9a-fA-F]{6}$"
+              },
+              "coat": {
+                "type": "string",
+                "pattern": "^#[0-9a-fA-F]{6}$"
+              },
+              "pants": {
+                "type": "string",
+                "pattern": "^#[0-9a-fA-F]{6}$"
+              },
+              "scarf": {
+                "type": "string",
+                "pattern": "^#[0-9a-fA-F]{6}$"
+              },
+              "hair_style": {
+                "type": "string",
+                "enum": [
+                  "short",
+                  "long"
+                ]
+              }
+            },
+            "required": [],
+            "additionalProperties": false
+          },
+          "portrait_key": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64,
+            "pattern": "^[a-z][a-z0-9_]*$"
           }
         },
         "required": [
@@ -87,7 +128,7 @@
         "additionalProperties": false
       },
       "minItems": 2,
-      "maxItems": 2
+      "maxItems": 16
     },
     "clues": {
       "type": "array",
@@ -122,6 +163,12 @@
               "clue_umbrella",
               "clue_photo"
             ]
+          },
+          "speaker_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64,
+            "pattern": "^[a-z][a-z0-9_]*$"
           }
         },
         "required": [
@@ -134,7 +181,7 @@
         "additionalProperties": false
       },
       "minItems": 1,
-      "maxItems": 4
+      "maxItems": 32
     },
     "chapters": {
       "type": "array",
@@ -172,7 +219,7 @@
                 "collect"
               ]
             },
-            "minItems": 2,
+            "minItems": 1,
             "maxItems": 2
           },
           "enemies": {
@@ -199,7 +246,7 @@
                     "x": {
                       "type": "number",
                       "minimum": 24,
-                      "maximum": 936
+                      "maximum": 1896
                     },
                     "y": {
                       "type": "number",
@@ -216,7 +263,7 @@
                 "trigger_x": {
                   "type": "number",
                   "minimum": 24,
-                  "maximum": 920
+                  "maximum": 1896
                 },
                 "after": {
                   "type": "array",
@@ -227,7 +274,13 @@
                     "pattern": "^[a-z][a-z0-9_]*$"
                   },
                   "minItems": 0,
-                  "maxItems": 8
+                  "maxItems": 32
+                },
+                "sprite_key": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 64,
+                  "pattern": "^[a-z][a-z0-9_]*$"
                 }
               },
               "required": [
@@ -239,8 +292,8 @@
               ],
               "additionalProperties": false
             },
-            "minItems": 1,
-            "maxItems": 8
+            "minItems": 0,
+            "maxItems": 32
           },
           "objectives": {
             "type": "array",
@@ -280,7 +333,7 @@
                     "pattern": "^[a-z][a-z0-9_]*$"
                   },
                   "minItems": 0,
-                  "maxItems": 8
+                  "maxItems": 32
                 },
                 "position": {
                   "type": "object",
@@ -288,7 +341,7 @@
                     "x": {
                       "type": "number",
                       "minimum": 24,
-                      "maximum": 936
+                      "maximum": 1896
                     },
                     "y": {
                       "type": "number",
@@ -313,8 +366,14 @@
               ],
               "additionalProperties": false
             },
-            "minItems": 2,
-            "maxItems": 8
+            "minItems": 1,
+            "maxItems": 32
+          },
+          "map_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64,
+            "pattern": "^[a-z][a-z0-9_]*$"
           }
         },
         "required": [
@@ -329,7 +388,7 @@
         "additionalProperties": false
       },
       "minItems": 1,
-      "maxItems": 1
+      "maxItems": 8
     },
     "ending": {
       "type": "object",
@@ -366,6 +425,468 @@
         "enabled"
       ],
       "additionalProperties": false
+    },
+    "maps": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64,
+            "pattern": "^[a-z][a-z0-9_]*$"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80
+          },
+          "theme": {
+            "type": "string",
+            "enum": [
+              "winter_street",
+              "garden",
+              "sunset"
+            ]
+          },
+          "width": {
+            "type": "integer",
+            "minimum": 640,
+            "maximum": 1920
+          },
+          "spawn": {
+            "type": "object",
+            "properties": {
+              "x": {
+                "type": "number",
+                "minimum": 24,
+                "maximum": 1896
+              },
+              "y": {
+                "type": "number",
+                "minimum": 104,
+                "maximum": 156
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ],
+            "additionalProperties": false
+          },
+          "door": {
+            "type": "object",
+            "properties": {
+              "x": {
+                "type": "number",
+                "minimum": 24,
+                "maximum": 1896
+              },
+              "y": {
+                "type": "number",
+                "minimum": 104,
+                "maximum": 156
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ],
+            "additionalProperties": false
+          },
+          "surfaces": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 64,
+                  "pattern": "^[a-z][a-z0-9_]*$"
+                },
+                "x": {
+                  "type": "number",
+                  "minimum": 24,
+                  "maximum": 1896
+                },
+                "y": {
+                  "type": "number",
+                  "minimum": 104,
+                  "maximum": 148
+                },
+                "width": {
+                  "type": "number",
+                  "minimum": 8,
+                  "maximum": 512
+                },
+                "depth": {
+                  "type": "number",
+                  "minimum": 8,
+                  "maximum": 52
+                },
+                "height": {
+                  "type": "number",
+                  "minimum": 1,
+                  "maximum": 64
+                }
+              },
+              "required": [
+                "id",
+                "x",
+                "y",
+                "width",
+                "depth",
+                "height"
+              ],
+              "additionalProperties": false
+            },
+            "minItems": 0,
+            "maxItems": 32
+          },
+          "npcs": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "character_id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 64,
+                  "pattern": "^[a-z][a-z0-9_]*$"
+                },
+                "position": {
+                  "type": "object",
+                  "properties": {
+                    "x": {
+                      "type": "number",
+                      "minimum": 24,
+                      "maximum": 1896
+                    },
+                    "y": {
+                      "type": "number",
+                      "minimum": 104,
+                      "maximum": 156
+                    }
+                  },
+                  "required": [
+                    "x",
+                    "y"
+                  ],
+                  "additionalProperties": false
+                },
+                "text": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 500
+                }
+              },
+              "required": [
+                "character_id",
+                "position",
+                "text"
+              ],
+              "additionalProperties": false
+            },
+            "minItems": 0,
+            "maxItems": 16
+          },
+          "background_key": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64,
+            "pattern": "^[a-z][a-z0-9_]*$"
+          },
+          "palette": {
+            "type": "object",
+            "properties": {
+              "sky": {
+                "type": "string",
+                "pattern": "^#[0-9a-fA-F]{6}$"
+              },
+              "ground": {
+                "type": "string",
+                "pattern": "^#[0-9a-fA-F]{6}$"
+              },
+              "building": {
+                "type": "string",
+                "pattern": "^#[0-9a-fA-F]{6}$"
+              },
+              "accent": {
+                "type": "string",
+                "pattern": "^#[0-9a-fA-F]{6}$"
+              }
+            },
+            "required": [],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "theme",
+          "width",
+          "spawn",
+          "door",
+          "surfaces",
+          "npcs"
+        ],
+        "additionalProperties": false
+      },
+      "minItems": 1,
+      "maxItems": 8
+    },
+    "assets": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64,
+            "pattern": "^[a-z][a-z0-9_]*$"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "portrait",
+              "sprite_sheet",
+              "background"
+            ]
+          },
+          "width": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2048
+          },
+          "height": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2048
+          },
+          "png_base64": {
+            "type": "string",
+            "minLength": 32,
+            "maxLength": 2000000,
+            "pattern": "^[A-Za-z0-9+/]+={0,2}$"
+          },
+          "frame_width": {
+            "type": "integer",
+            "minimum": 8,
+            "maximum": 128
+          },
+          "frame_height": {
+            "type": "integer",
+            "minimum": 8,
+            "maximum": 128
+          },
+          "animations": {
+            "type": "object",
+            "properties": {
+              "idle": {
+                "type": "object",
+                "properties": {
+                  "row": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 63
+                  },
+                  "frames": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 64
+                  },
+                  "fps": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 30
+                  }
+                },
+                "required": [
+                  "row",
+                  "frames",
+                  "fps"
+                ],
+                "additionalProperties": false
+              },
+              "move": {
+                "type": "object",
+                "properties": {
+                  "row": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 63
+                  },
+                  "frames": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 64
+                  },
+                  "fps": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 30
+                  }
+                },
+                "required": [
+                  "row",
+                  "frames",
+                  "fps"
+                ],
+                "additionalProperties": false
+              },
+              "attack": {
+                "type": "object",
+                "properties": {
+                  "row": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 63
+                  },
+                  "frames": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 64
+                  },
+                  "fps": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 30
+                  }
+                },
+                "required": [
+                  "row",
+                  "frames",
+                  "fps"
+                ],
+                "additionalProperties": false
+              },
+              "jump": {
+                "type": "object",
+                "properties": {
+                  "row": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 63
+                  },
+                  "frames": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 64
+                  },
+                  "fps": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 30
+                  }
+                },
+                "required": [
+                  "row",
+                  "frames",
+                  "fps"
+                ],
+                "additionalProperties": false
+              },
+              "crouch": {
+                "type": "object",
+                "properties": {
+                  "row": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 63
+                  },
+                  "frames": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 64
+                  },
+                  "fps": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 30
+                  }
+                },
+                "required": [
+                  "row",
+                  "frames",
+                  "fps"
+                ],
+                "additionalProperties": false
+              },
+              "hurt": {
+                "type": "object",
+                "properties": {
+                  "row": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 63
+                  },
+                  "frames": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 64
+                  },
+                  "fps": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 30
+                  }
+                },
+                "required": [
+                  "row",
+                  "frames",
+                  "fps"
+                ],
+                "additionalProperties": false
+              },
+              "down": {
+                "type": "object",
+                "properties": {
+                  "row": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 63
+                  },
+                  "frames": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 64
+                  },
+                  "fps": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 30
+                  }
+                },
+                "required": [
+                  "row",
+                  "frames",
+                  "fps"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "idle",
+              "move",
+              "attack"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "width",
+          "height",
+          "png_base64"
+        ],
+        "additionalProperties": false
+      },
+      "minItems": 0,
+      "maxItems": 32
     }
   },
   "required": [

@@ -2,6 +2,8 @@ extends CharacterBody2D
 
 const Combat = preload("res://scripts/gameplay/combat_manager.gd")
 var team := "enemy"
+var sprite_key := ""
+var appearance: Dictionary = {}
 var actor_id := ""
 var enemy_type := "street_thug"
 var hp := 35
@@ -198,6 +200,16 @@ func receive_hit(damage: int, direction: int) -> bool:
 
 func _draw() -> void:
 	draw_ellipse_shadow()
+	if not sprite_key.is_empty():
+		var animation := "idle"
+		if hp <= 0: animation = "down"
+		elif stun > 0: animation = "hurt"
+		elif attack_clock > 0: animation = "attack"
+		elif not grounded: animation = "jump"
+		elif crouching: animation = "crouch"
+		elif velocity.length() > 0.1: animation = "move"
+		draw_set_transform(Vector2(0, -roundf(elevation)), 0, Vector2(facing, 1))
+		if AssetLibrary.draw_actor(self, sprite_key, animation, time, attack_clock / attack_length if attack_clock > 0 else -1): return
 	draw_set_transform(Vector2(0, -roundf(elevation)), 0, Vector2(1, 0.55 if crouching else 1.0))
 	if hp <= 0:
 		draw_rect(Rect2(-11, -7, 22, 6), Color("777b95"))
@@ -205,17 +217,18 @@ func _draw() -> void:
 	var bounce := roundf(sin(time * 12)) if phase == "MOVE" else 0.0
 	var coat := Color("6bb8c4") if team == "player" else Color("d36d81")
 	if enemy_type == "bruiser" and team == "enemy": coat = Color("a78ac9")
+	coat = Color(appearance.get("coat", coat.to_html(false)))
 	if invulnerability > 0 and fmod(time, 0.12) < 0.06: coat = Color("fff1cc")
 	var bob := Vector2(0, bounce)
 	draw_rect(Rect2(Vector2(-7, -19) + bob, Vector2(14, 13)), coat)
-	draw_rect(Rect2(Vector2(-8, -32) + bob, Vector2(16, 13)), Color("f4cdb3"))
-	draw_rect(Rect2(Vector2(-9, -35) + bob, Vector2(18, 7)), Color("272945"))
-	draw_rect(Rect2(Vector2(-9, -29) + bob, Vector2(4, 6)), Color("272945"))
-	draw_rect(Rect2(Vector2(facing * 4 - 1, -27) + bob, Vector2(2, 2)), Color("272945"))
-	draw_rect(Rect2(Vector2(-8, -21) + bob, Vector2(16, 4)), Color("f6c77e"))
+	draw_rect(Rect2(Vector2(-8, -32) + bob, Vector2(16, 13)), Color(appearance.get("skin", "#f4cdb3")))
+	draw_rect(Rect2(Vector2(-9, -35) + bob, Vector2(18, 7)), Color(appearance.get("hair", "#272945")))
+	draw_rect(Rect2(Vector2(-9, -29) + bob, Vector2(4, 6)), Color(appearance.get("hair", "#272945")))
+	draw_rect(Rect2(Vector2(facing * 4 - 1, -27) + bob, Vector2(2, 2)), Color(appearance.get("hair", "#272945")))
+	draw_rect(Rect2(Vector2(-8, -21) + bob, Vector2(16, 4)), Color(appearance.get("scarf", "#f6c77e")))
 	var stride := roundf(sin(time * 13) * 2) if phase == "MOVE" else 0.0
-	draw_rect(Rect2(-7, -6, 5, 5 + stride), Color("252941"))
-	draw_rect(Rect2(2, -6, 5, 5 - stride), Color("252941"))
+	draw_rect(Rect2(-7, -6, 5, 5 + stride), Color(appearance.get("pants", "#252941")))
+	draw_rect(Rect2(2, -6, 5, 5 - stride), Color(appearance.get("pants", "#252941")))
 	if attack_clock > 0:
 		if attack_clock < windup:
 			draw_line(Vector2(facing * 8, -16), Vector2(facing * 12, -21), Color("ffe0a3"), 3)

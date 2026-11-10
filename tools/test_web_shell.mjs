@@ -48,7 +48,7 @@ async function boot({ fullscreen = true, fullscreenAllowed = true, rejectFullscr
     addEventListener(name, fn) { events[name] = fn; },
     Engine: class {
       static getMissingFeatures() { return missing; }
-      startGame() { return loadFails ? Promise.reject(new Error('network')) : Promise.resolve(); }
+      startGame() { context.myCartridgeImportPack = () => { context.myCartridgeImportResult = JSON.stringify({ ok: true, errors: [] }); }; return loadFails ? Promise.reject(new Error('network')) : Promise.resolve(); }
     },
   };
   context.window = context;

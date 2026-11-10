@@ -21,7 +21,7 @@ jobs:
       - name: Verify tested export matches source
         run: python3 tools/prepare_web.py --check
       - name: Check mobile viewport and multitouch coordinates
-        run: node --test tools/test_web_shell.mjs
+        run: npm run test:unit
       - name: Validate sample schemas
         run: |
           python3 -m pip install -r requirements-dev.txt

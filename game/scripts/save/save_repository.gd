@@ -29,7 +29,9 @@ func load_save(pack: Dictionary) -> Dictionary:
 		return {}
 	if raw.get("pack_id") != pack.pack_id or raw.get("pack_revision") != pack.pack_revision:
 		return {} # Revision migrations must be explicit; do not mix incompatible state.
-	if raw.get("stage_id") != pack.chapters[0].id:
+	var stages: Array = []
+	for chapter in pack.chapters: stages.append(chapter.id)
+	if raw.get("stage_id") not in stages:
 		return {}
 	for key in ["collected_clue_ids", "completed_objective_ids", "defeated_actor_ids"]:
 		if not raw.get(key) is Array:
@@ -38,9 +40,11 @@ func load_save(pack: Dictionary) -> Dictionary:
 		if key == "collected_clue_ids":
 			for item in pack.clues: allowed.append(item.id)
 		elif key == "completed_objective_ids":
-			for item in pack.chapters[0].objectives: allowed.append(item.id)
+			for chapter in pack.chapters:
+				for item in chapter.objectives: allowed.append(item.id)
 		else:
-			for item in pack.chapters[0].enemies: allowed.append(item.id)
+			for chapter in pack.chapters:
+				for item in chapter.enemies: allowed.append(item.id)
 		var clean: Array = []
 		for id in raw[key]:
 			if id in allowed and id not in clean: clean.append(id)

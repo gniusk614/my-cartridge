@@ -12,7 +12,7 @@ ROOT = Path(__file__).resolve().parents[1]
 def source_digest():
     digest = hashlib.sha256()
     files = []
-    for folder in ("game", "schemas", "examples"):
+    for folder in ("game", "schemas", "examples", "studio"):
         for path in (ROOT / folder).rglob("*"):
             if not path.is_file() or ".godot" in path.parts:
                 continue
@@ -41,6 +41,39 @@ def check_site():
     print("PASS: Pages export matches the current game source and asset checksums.")
 
 
+def copy_studio(site, assets=None):
+    assets = assets if assets is not None else {}
+    source = ROOT / "studio"
+    destination = site / "studio"
+    destination.mkdir(parents=True, exist_ok=True)
+    rendered = {}
+
+    def write(name, data):
+        (destination / name).write_bytes(data)
+        assets["studio/" + name] = hashlib.sha256(data).hexdigest()
+
+    def module(name):
+        if name in rendered:
+            return rendered[name]
+        raw = (source / name).read_text()
+        for dependency in re.findall(r"from ['\"]\./([a-z_]+\.js)['\"]", raw):
+            raw = raw.replace("./" + dependency, "./" + module(dependency))
+        data = raw.encode()
+        output = Path(name).stem + "-" + hashlib.sha256(data).hexdigest()[:12] + ".js"
+        write(output, data)
+        rendered[name] = output
+        return output
+
+    script = module("studio.js")
+    css = (source / "studio.css").read_bytes()
+    style = "studio-" + hashlib.sha256(css).hexdigest()[:12] + ".css"
+    write(style, css)
+    html = (source / "index.html").read_text().replace("./studio.js", "./" + script).replace("./studio.css", "./" + style)
+    write("index.html", html.encode())
+    write("schema.json", (ROOT / "schemas/game_pack.schema.json").read_bytes())
+    return assets
+
+
 def prepare_site():
     export = ROOT / "build" / "web"
     required = ("index.html", "index.js", "index.wasm", "index.pck")
@@ -52,7 +85,7 @@ def prepare_site():
     previous = site / "build-info.json"
     if previous.exists():
         for name in json.loads(previous.read_text()).get("assets", {}):
-            if Path(name).name != name:
+            if Path(name).is_absolute() or ".." in Path(name).parts:
                 raise SystemExit("Invalid previous manifest asset name")
             (site / name).unlink(missing_ok=True)
     assets = {}
@@ -84,6 +117,7 @@ def prepare_site():
         shutil.copy2(path, site / name)
         shutil.copy2(path, export / path.name)
         assets[name] = checksum
+    copy_studio(site, assets)
     html = "\n".join(line.rstrip() for line in html.splitlines()) + "\n"
     (site / "index.html").write_text(html)
     assets["index.html"] = hashlib.sha256((site / "index.html").read_bytes()).hexdigest()

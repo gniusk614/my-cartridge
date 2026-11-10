@@ -33,3 +33,5 @@ progress { display: block; width: 100%; height: 7px; margin: 12px 0 18px; accent
 }
 
 #game-surface.rotated #fullscreen-toggle { top: max(8px, env(safe-area-inset-right)); }
+
+.studio-link { display: inline-block; margin: 10px 0 4px; color: #8ccfc6; font-size: 13px; text-decoration: none; }

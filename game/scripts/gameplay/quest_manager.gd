@@ -36,7 +36,12 @@ func refresh() -> void:
 			if done:
 				completed.append(goal.id)
 				EventBus.objective_completed.emit(goal.id)
-	progress.completed_objective_ids = completed.duplicate()
+	var current_ids: Array = []
+	for goal in chapter.objectives: current_ids.append(goal.id)
+	var combined: Array = []
+	for id in progress.completed_objective_ids:
+		if id not in current_ids: combined.append(id)
+	progress.completed_objective_ids = combined + completed
 
 func available_clues() -> Array:
 	var result: Array = []

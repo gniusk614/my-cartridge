@@ -139,6 +139,48 @@
     : '가로 게임 화면으로 시작합니다. iPhone은 Safari의 공유 → 홈 화면에 추가로 주소줄 없이 실행할 수 있어요.';
   updateLayout();
 
+  window.myCartridgeStudioPreview = typeof location !== 'undefined' && new URLSearchParams(location.search).get('studio-preview') === '1';
+  let resolveImportReady;
+  const importReady = new Promise(resolve => { resolveImportReady = resolve; });
+  function importPack(pack, autoStart = false) {
+    if (typeof window.myCartridgeImportPack !== 'function') throw new Error('게임 준비 후 다시 열어 주세요.');
+    const raw = typeof pack === 'string' ? pack : JSON.stringify(pack);
+    if (raw.length > 16000000) throw new Error('게임팩은 16 MB 이하여야 합니다.');
+    window.myCartridgeImportPack(raw, autoStart);
+    const result = JSON.parse(window.myCartridgeImportResult);
+    if (result.ok && result.title) document.getElementById('launch-title').textContent = result.title;
+    if (result.ok && autoStart) begin(false);
+    return result;
+  }
+  let announced = false;
+  function announceReady() {
+    resolveImportReady();
+    if (announced) return;
+    announced = true;
+    if (window.myCartridgeStudioPreview && window.parent && window.parent !== window) {
+      window.parent.postMessage({ type: 'mc:ready' }, location.origin);
+    }
+  }
+  addEventListener('message', event => {
+    if (!window.myCartridgeStudioPreview || event.origin !== location.origin || event.source !== window.parent || event.data?.type !== 'mc:preview') return;
+    try {
+      const result = importPack(event.data.pack, true);
+      window.parent.postMessage({ type: 'mc:preview-result', ...result }, location.origin);
+    } catch (error) { window.parent.postMessage({ type: 'mc:preview-result', ok: false, errors: [error.message] }, location.origin); }
+  });
+  document.getElementById('launch-import').addEventListener('click', () => document.getElementById('pack-file').click());
+  document.getElementById('pack-file').addEventListener('change', async event => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    try {
+      if (file.size > 16000000) throw new Error('게임팩은 16 MB 이하여야 합니다.');
+      const result = importPack(await file.text());
+      if (!result.ok) throw new Error(result.errors.join(' / '));
+      status.textContent = '맞춤 에피소드를 열었습니다. 게임 시작을 누르세요.';
+    } catch (error) { status.textContent = error.message; }
+    event.target.value = '';
+  });
+
   const missing = Engine.getMissingFeatures({ threads: GODOT_THREADS_ENABLED });
   if (missing.length) {
     status.textContent = '이 브라우저에서 게임을 실행할 수 없습니다. Safari 또는 Chrome의 최신 버전에서 열어주세요.';
@@ -155,7 +197,21 @@
         status.textContent = `게임을 불러오고 있어요… ${Math.min(100, Math.round(current / total * 100))}%`;
       }
     },
-  }).then(() => {
+  }).then(async () => {
+    const deadline = Date.now() + 30000;
+    while (typeof window.myCartridgeImportPack !== 'function') {
+      if (Date.now() > deadline) throw new Error('Game bridge did not initialize');
+      await new Promise(resolve => setTimeout(resolve, 16));
+    }
+    announceReady();
+    if (window.myCartridgeBundlePath === 'episode.json') {
+      await importReady;
+      const response = await fetch('episode.json');
+      if (!response.ok) throw new Error('Bundled episode is missing');
+      const result = importPack(await response.text());
+      if (!result.ok) throw new Error(result.errors.join(' / '));
+    }
+    document.getElementById('launch-import').disabled = false;
     status.textContent = '준비됐어요. 화면을 눌러 시작하세요.';
     progress.hidden = true;
     fullButton.disabled = false;

@@ -4,6 +4,7 @@ import re
 import shutil
 import subprocess
 from pathlib import Path
+from prepare_web import copy_studio
 
 ROOT = Path(__file__).resolve().parents[1]
 SITE = ROOT / "web"
@@ -44,6 +45,7 @@ def build():
         if not path.is_file() or path.suffix in (".import", ".uid"):
             continue
         shutil.copy2(path, DEST / path.name)
+    copy_studio(DEST)
     (DEST / "index.html").write_text(html)
     print("Browser test pack ready; Pages files and player saves are unchanged.")
 

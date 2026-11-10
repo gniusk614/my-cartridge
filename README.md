@@ -1,6 +1,14 @@
-# MY CARTRIDGE 첫 플레이 빌드
+# MY CARTRIDGE 고객 맞춤형 에피소드 제작 엔진
 
 사연을 전투와 기억 수집으로 풀어내는 선물 게임의 Godot 기술 시제품입니다. 카페 거리에서 적을 물리치고 단서를 읽은 뒤, 오른쪽 카페에 들어가 책상 앞에서 편지를 읽습니다. 상자에서 점프해 난간 위를 탐색할 수도 있습니다. 2026년 11월 10일 구현본입니다.
+
+## 에피소드 만들기
+
+**[에피소드 스튜디오 열기](https://gniusk614.github.io/my-cartridge/studio/)** — 맵·캐릭터·스토리를 브라우저에서 편집하고 실제 게임으로 미리 봅니다. 사진·그림 도트 초상화 변환, 7종 공통 동작 스프라이트시트 생성, 외부 PNG 시트 등록을 지원합니다. 외부 시트는 필수가 아닙니다.
+
+최대 8장면을 연결하고 전투 없는 이야기 장면도 만들 수 있습니다. 제작 원본은 JSON으로, 공통 실행 파일과 고객 에피소드는 게임 ZIP으로 내보냅니다. 원본 사진은 서버로 보내지 않고 초안·변환 PNG는 브라우저 IndexedDB에 저장합니다. 고객 데이터를 공개 저장소에 자동 게시하지 않습니다.
+
+변환기는 현재 픽셀화·팔레트 방식이며 AI 재그림이나 사진 한 장에서 고유한 전신 동작을 추론하는 기능은 없습니다. 제작 순서·지원 범위·확장 계획은 [docs/EPISODE_ENGINE.md](docs/EPISODE_ENGINE.md)를 참조하세요.
 
 ## 바로 실행
 
@@ -66,14 +74,14 @@ python3 tools/prepare_web.py
 bash tools/godot.sh --headless --editor --import --quit
 bash tools/godot.sh --headless --fixed-fps 60 --script res://tests/test_runner.gd
 python3 tools/check_content.py  # jsonschema 패키지 필요
-node --test tools/test_web_shell.mjs
+npm run test:unit
 # 브라우저 검사 최초 설치 후 실행
 npm ci
 npx playwright install chromium webkit
 npm run test:browser
 ```
 
-테스트는 전용 `user://mc_automated_tests` 폴더만 사용합니다. 게임의 일반 저장 폴더를 덮어쓰지 않습니다. 봇 완주는 실제 이동 입력, 물리 프레임, Area2D 판정, 적 AI, 단서 상호작용을 통과합니다. Godot 105개·웹 셸 17개·브라우저 10개 검사와 기존 봇 완주 10회를 통과했습니다. Chromium·WebKit의 가로·회전 대체 화면에서 3점 동시 터치와 숨김 후 복귀, 실제 전투 진행의 IndexedDB 저장·새로고침·브라우저 재시작 복원을 검사합니다. 자동 검사는 재미·터치 조작감·실기기 성능을 보증하지 않습니다.
+테스트는 전용 `user://mc_automated_tests` 폴더만 사용합니다. 게임의 일반 저장 폴더를 덮어쓰지 않습니다. 봇 완주는 실제 이동 입력, 물리 프레임, Area2D 판정, 적 AI, 단서 상호작용을 통과합니다. Godot 123개·웹 셸/스튜디오 단위 26개·브라우저 16개 검사와 기존 봇 완주 10회를 통과했습니다. Chromium·WebKit의 가로·회전 대체 화면에서 3점 동시 터치와 숨김 후 복귀, 실제 전투 진행의 IndexedDB 저장·새로고침·브라우저 재시작 복원을 검사합니다. 자동 검사는 재미·터치 조작감·실기기 성능을 보증하지 않습니다.
 
 ## 데이터 수정
 
@@ -81,8 +89,8 @@ npm run test:browser
 
 ## 남은 작업
 
-이 빌드는 원문 P0의 시작점입니다. 플레이 분량 2~4분, 타격감에 대한 사람의 평가, iPhone Safari·Android Chrome의 동시 터치·음향·복귀·저장 유지 테스트는 미통과 상태입니다. 전투 아트는 원본 코드로 그린 임시 도형 캐릭터이며, 전체 스프라이트 애니메이션과 최종 음원은 교체해야 합니다. 회복 소품·회피·다중 챕터·협동·플랫폼·결제·AI 제작은 아직 구현하지 않았습니다.
+이 빌드는 원문 P0의 시작점입니다. 플레이 분량 2~4분, 타격감에 대한 사람의 평가, iPhone Safari·Android Chrome의 동시 터치·음향·복귀·저장 유지 테스트는 미통과 상태입니다. 전투 아트는 원본 코드로 그린 임시 도형 캐릭터이며, 전체 스프라이트 애니메이션과 최종 음원은 교체해야 합니다. 다중 장면·고객별 맵·캐릭터·스토리 편집은 제작 엔진 1.1에 추가했습니다. 회복 소품·회피·온라인 협동·플랫폼·결제·AI 재그림·고유 동작 생성은 아직 구현하지 않았습니다.
 
 웹 저장은 브라우저 데이터 삭제나 사생활 보호 모드에서 유지되지 않을 수 있습니다. 저장 개정이 달라지면 이 버전은 새 진행으로 시작합니다. 개정 간 마이그레이션은 팩 배포 전에 추가해야 합니다.
 
-모바일 테스트와 배포 방법은 `docs/DEVELOPMENT.md`, 모바일 입력 설계는 `docs/MOBILE_UX.md`, 전체화면 동작은 `docs/FULLSCREEN.md`, 브라우저 회귀·저장 복원 검사는 `docs/BROWSER_TESTS.md`, 초기 검증 기록은 `docs/VALIDATION.md`에서 확인합니다.
+제작 엔진의 다음 작업은 `docs/EPISODE_ENGINE.md`, 모바일 테스트와 배포 방법은 `docs/DEVELOPMENT.md`, 모바일 입력 설계는 `docs/MOBILE_UX.md`, 전체화면 동작은 `docs/FULLSCREEN.md`, 브라우저 회귀·저장 복원 검사는 `docs/BROWSER_TESTS.md`, 초기 검증 기록은 `docs/VALIDATION.md`에서 확인합니다.

@@ -18,6 +18,37 @@ func begin(data: Dictionary, resume: bool = true) -> void:
 			"collected_clue_ids": [], "completed_objective_ids": [],
 			"defeated_actor_ids": [], "ending_seen": false, "saved_at": ""}
 
+	AssetLibrary.configure(pack)
+	# Recompute completion from facts, including earlier scenes in an episode.
+	progress.completed_objective_ids = []
+	var first_incomplete := -1
+	var Quest = preload("res://scripts/gameplay/quest_manager.gd")
+	for i in pack.chapters.size():
+		var quest = Quest.new()
+		quest.configure(pack.chapters[i], progress)
+		if not quest.is_complete() and first_incomplete < 0: first_incomplete = i
+	if first_incomplete >= 0 and chapter_index() > first_incomplete:
+		progress.stage_id = pack.chapters[first_incomplete].id
+
+func chapter_index() -> int:
+	for i in pack.chapters.size():
+		if pack.chapters[i].id == progress.get("stage_id", ""): return i
+	return 0
+
+func chapter() -> Dictionary:
+	return pack.chapters[chapter_index()]
+
+func story_text(text: String) -> String:
+	for character in pack.characters:
+		text = text.replace("{{" + str(character.id) + "}}", character.name)
+		if character.role != "npc": text = text.replace("{{" + str(character.role) + "}}", character.name)
+	return text
+
+func character(id: String) -> Dictionary:
+	for item in pack.get("characters", []):
+		if item.id == id: return item
+	return {}
+
 func persist() -> bool:
 	if progress.is_empty():
 		return false
@@ -34,3 +65,8 @@ func collect(id: String) -> bool:
 	persist()
 	EventBus.clue_collected.emit(id)
 	return true
+
+func character_for_role(role: String) -> Dictionary:
+	for item in pack.get("characters", []):
+		if item.role == role: return item
+	return {}

@@ -298,6 +298,7 @@ func run() -> void:
 	root.size = original_window_size
 	for i in 3: await process_frame
 	game.ui.apply_layout()
+	await test_custom_episode()
 	print("RESULT: %d checks, %d failures" % [checks, failures])
 	game.free()
 	await process_frame
@@ -396,3 +397,76 @@ func test_browser_suspend() -> void:
 	game.on_browser_suspend([])
 	expect(session.state == "PAUSED", "repeated browser suspension is idempotent")
 	game.play()
+
+func test_custom_episode() -> void:
+	var pack: Dictionary = loader.load_pack(loader.PACKS[0]).duplicate(true)
+	pack.schema_version = "1.1.0"
+	pack.pack_id = "test_custom_episode"
+	var image := Image.create(32, 48, false, Image.FORMAT_RGBA8)
+	image.fill(Color("8bd1bf"))
+	var png := Marshalls.raw_to_base64(image.save_png_to_buffer())
+	pack.assets = [
+		{"id": "custom_avatar", "kind": "sprite_sheet", "width": 32, "height": 48, "png_base64": png,
+		"frame_width": 32, "frame_height": 48, "animations": {"idle": {"row": 0, "frames": 1, "fps": 8}, "move": {"row": 0, "frames": 1, "fps": 8}, "attack": {"row": 0, "frames": 1, "fps": 8}}},
+		{"id": "custom_portrait", "kind": "portrait", "width": 32, "height": 48, "png_base64": png},
+	]
+	pack.characters[0].sprite_key = "custom_avatar"
+	pack.characters[0].portrait_key = "custom_portrait"
+	pack.characters[0].appearance = {"coat": "#aabbcc"}
+	pack.maps = [
+		{"id": "custom_map_1", "name": "공원", "theme": "garden", "width": 800, "spawn": {"x": 80, "y": 130}, "door": {"x": 760, "y": 133}, "surfaces": [{"id": "step", "x": 300, "y": 104, "width": 32, "depth": 16, "height": 16}], "npcs": [{"character_id": "missing", "position": {"x": 120, "y": 130}, "text": "안녕 {{player}}"}]},
+		{"id": "custom_map_2", "name": "노을", "theme": "sunset", "width": 640, "spawn": {"x": 70, "y": 130}, "door": {"x": 580, "y": 133}, "surfaces": [], "npcs": []},
+	]
+	pack.chapters[0].map_id = "custom_map_1"
+	pack.clues.append({"id": "second_memory", "name": "두 번째 기억", "text": "우리의 기억", "memory": "{{hero}}의 이야기", "asset_key": "clue_photo", "speaker_id": "hero"})
+	pack.chapters.append({"id": "second_scene", "title": "두 번째 장면", "intro": "새로운 장소", "template": "winter_street", "map_id": "custom_map_2", "mechanics": ["collect"], "enemies": [], "objectives": [{"id": "second_goal", "type": "collect_clue", "target": "second_memory", "count": 1, "depends_on": [], "position": {"x": 470, "y": 130}}]})
+	expect(loader.validator.validate(pack).is_empty(), "custom episode accepts maps portraits sprites NPCs and peaceful next scene")
+	for mutation in ["map", "sprite", "dimensions", "animation", "boundary", "duplicate"]:
+		var bad: Dictionary = pack.duplicate(true)
+		match mutation:
+			"map": bad.chapters[1].map_id = "missing_map"
+			"sprite": bad.characters[0].sprite_key = "custom_portrait"
+			"dimensions": bad.assets[0].width = 64
+			"animation": bad.assets[0].animations.move.row = 7
+			"boundary": bad.maps[0].surfaces[0].x = 790
+			"duplicate": bad.chapters[1].objectives[0].id = bad.chapters[0].objectives[0].id
+		expect(not loader.validator.validate(bad).is_empty(), "reject custom episode " + mutation)
+	expect(loader.register_pack(pack).is_empty(), "register custom pack without changing source catalog")
+	game.selected = loader.available_packs().find(pack.pack_id)
+	game.start(false)
+	game.play()
+	expect(game.stage.world_width == 800 and game.player.position == Vector2(80, 130), "custom map controls bounds and spawn")
+	expect(game.player.sprite_key == "custom_avatar" and root.get_node("AssetLibrary").texture("custom_avatar") != null, "custom PNG sprite reaches player renderer")
+	expect(session.story_text("{{player}} / {{hero}}") == pack.characters[0].name + " / " + pack.characters[0].name, "story placeholders use character names")
+	game.player.position = Vector2(120, 130)
+	game.interact_nearby()
+	expect(session.state == "DIALOGUE" and session.progress.collected_clue_ids.is_empty(), "NPC dialogue does not alter objectives")
+	game.play()
+	for enemy in pack.chapters[0].enemies: game.quest.record_defeat(enemy.id)
+	game.collect(pack.clues[0].id)
+	game.play()
+	game.player.position = game.stage.door_position
+	game.interact_nearby()
+	game.player.position = game.stage.letter_desk
+	game.interact_nearby()
+	expect(session.state == "CHAPTER_CLEAR" and not session.progress.ending_seen, "intermediate scene leads to next scene rather than final ending")
+	game.advance_chapter()
+	expect(session.chapter_index() == 1 and game.stage.world_width == 640, "next scene changes active map and persists checkpoint")
+	game.start(true)
+	expect(session.chapter_index() == 1 and session.progress.collected_clue_ids == [pack.clues[0].id], "multi scene save restores active scene and earlier memories")
+	game.play()
+	game.player.position = Vector2(470, 130)
+	game.interact_nearby()
+	game.play()
+	game.player.position = game.stage.door_position
+	game.interact_nearby()
+	game.player.position = game.stage.letter_desk
+	game.interact_nearby()
+	expect(session.state == "ENDING" and session.progress.collected_clue_ids.size() == 2, "custom peaceful scene completes the episode with both memories")
+	expect(session.progress.completed_objective_ids.size() == 3, "completed objectives preserve facts from every scene")
+	var forged: Dictionary = session.progress.duplicate(true)
+	forged.collected_clue_ids = []
+	forged.defeated_actor_ids = []
+	session.storage.write_save(forged)
+	game.start(true)
+	expect(session.chapter_index() == 0 and session.progress.completed_objective_ids.is_empty(), "resume cannot skip unfinished earlier scenes using stale completion flags")

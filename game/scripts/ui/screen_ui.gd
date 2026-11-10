@@ -78,7 +78,8 @@ func _ready() -> void:
 func apply_layout() -> void:
 	var safe: Dictionary = {}
 	if OS.has_feature("web"):
-		var raw = JavaScriptBridge.eval("JSON.stringify(window.myCartridgeSafeArea || {})")
+		var area = JavaScriptBridge.get_interface("window").myCartridgeSafeArea
+		var raw = JavaScriptBridge.get_interface("JSON").stringify(area) if area != null else "{}"
 		if raw is String:
 			var parsed = JSON.parse_string(raw)
 			if parsed is Dictionary: safe = parsed
@@ -104,7 +105,7 @@ func create_touches() -> void:
 	touches.ui_theme = ui_theme
 	add_child(touches)
 
-func clear_modal(title: String, text: String) -> void:
+func clear_modal(title: String, text: String, portrait_key: String = "") -> void:
 	for child in body.get_children():
 		body.remove_child(child)
 		child.queue_free()
@@ -115,6 +116,14 @@ func clear_modal(title: String, text: String) -> void:
 	touches.hide()
 	for action in ["move_left", "move_right", "move_up", "move_down", "attack", "interact", "jump", "crouch"]:
 		Input.action_release(action)
+	var portrait: Texture2D = AssetLibrary.texture(portrait_key)
+	if portrait != null:
+		var picture := TextureRect.new()
+		picture.texture = portrait
+		picture.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		picture.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		picture.custom_minimum_size = Vector2(40, 40)
+		body.add_child(picture)
 	var heading := Label.new()
 	heading.text = title
 	heading.add_theme_font_size_override("font_size", 12)

@@ -10,6 +10,7 @@ EventBus="*res://scripts/core/event_bus.gd"
 GameSession="*res://scripts/core/game_session.gd"
 PackLoader="*res://scripts/data/pack_loader.gd"
 MobileInput="*res://scripts/ui/mobile_input.gd"
+AssetLibrary="*res://scripts/data/asset_library.gd"
 
 [display]
 window/size/viewport_width=320
