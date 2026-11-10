@@ -49,7 +49,7 @@ Chromium과 WebKit에서 아래 다섯 시나리오씩 총 10개를 실행한다
 
 GitHub Actions는 공개 내보내기 해시·웹 셸·스키마 검사에 더해 Godot 4.7.2 import와 물리 회귀, Chromium/WebKit 브라우저 검사를 실행한다. 모두 통과해야 Pages 업로드·배포가 진행된다. 브라우저 실패 시 `test-results/`의 trace·화면을 보관하고, 프로필 재시작 검사에는 마지막 게임 상태와 화면을 첨부한다.
 
-최신 로컬 결과: Godot 105개 검사·기존 세 팩 완주 10회·웹 셸 17개 검사·브라우저 10개 시나리오 모두 통과했다. 최종 npm test는 약 2분에 완료했다. Chrome 154 기반 설치 브라우저와 Playwright WebKit 27.2를 macOS에서 실행했으며, 배포 시 CI에서는 Playwright의 고정 Chromium/WebKit을 사용한다.
+최신 로컬 결과: Godot 105개 검사·기존 세 팩 완주 10회·웹 셸 17개 검사·브라우저 10개 시나리오 모두 통과했다. 최종 npm test는 약 2분에 완료했다. Chrome 157.0.8103.39와 Playwright WebKit 27.2를 macOS에서 실행했으며, 배포 시 CI에서는 Playwright의 고정 Chromium/WebKit을 사용한다.
 
 ## 실기기에서 남은 확인
 
