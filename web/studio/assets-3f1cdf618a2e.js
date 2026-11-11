@@ -1,13 +1,13 @@
-import { canvasAsset } from './pixel-84ea2d3838ca.js';
-import { uid, assetReferences } from './core-2aa61d3663df.js';
-export const ASSET_KINDS = { prop: '장식', background: '배경', portrait: '초상화', sprite_sheet: '캐릭터 동작' };
+import { canvasAsset } from './pixel-9233d454118c.js';
+import { uid, assetReferences } from './core-6753c5262a85.js';
+export const ASSET_KINDS = { prop: '장식', background: '배경', portrait: '초상화', sprite_sheet: '캐릭터 동작', character_source: '전신 원본 (자동 생성용)' };
 export async function importAsset(file, kind, readImage) {
   if (!ASSET_KINDS[kind]) throw new Error('에셋 종류를 선택해 주세요.');
   if (kind === 'sprite_sheet' && file.type !== 'image/png') throw new Error('캐릭터 시트는 PNG를 선택해 주세요.');
   const image = await readImage(file);
   try {
     if (kind === 'sprite_sheet' && (image.width > 2048 || image.height > 2048 || image.width < 8 || image.height < 8)) throw new Error('캐릭터 시트는 8~2048 픽셀이어야 합니다.');
-    const ratio = kind === 'sprite_sheet' ? 1 : Math.min(1, (kind === 'prop' ? 512 : 2048) / Math.max(image.width, image.height));
+    const ratio = kind === 'sprite_sheet' ? 1 : Math.min(1, (kind === 'character_source' ? 384 : kind === 'prop' ? 512 : 2048) / Math.max(image.width, image.height));
     const canvas = document.createElement('canvas'); canvas.width = Math.max(1, Math.round(image.width * ratio)); canvas.height = Math.max(1, Math.round(image.height * ratio));
     const ctx = canvas.getContext('2d'); ctx.imageSmoothingEnabled = false; ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
     const asset = canvasAsset(canvas, uid('image'), kind, { name: (file.name.replace(/\.[^.]+$/, '') || '새 이미지').slice(0, 80) });
@@ -22,7 +22,7 @@ export async function importAsset(file, kind, readImage) {
 }
 export function assetCard(asset, pack, esc, compact = false, targetName = '') {
   const used = assetReferences(pack, asset.id), label = ASSET_KINDS[asset.kind];
-  const action = asset.kind === 'prop' ? '맵에 추가' : asset.kind === 'background' ? '현재 장면 배경으로' : asset.kind === 'portrait' ? '선택한 인물 초상화로' : '선택한 인물 동작으로';
+  const action = asset.kind === 'prop' ? '맵에 추가' : asset.kind === 'background' ? '현재 장면 배경으로' : asset.kind === 'portrait' ? '선택한 인물 초상화로' : asset.kind === 'character_source' ? '전신 동작 자동 생성' : '선택한 인물 동작으로';
   const index = pack.assets.indexOf(asset);
   return `<article class="asset-card" ${asset.kind === 'prop' ? `draggable="true" data-drag-asset="${esc(asset.id)}"` : ''}>
     <div class="asset-thumb checker"><img src="data:image/png;base64,${asset.png_base64}" alt="${esc(asset.name || label)}"></div>

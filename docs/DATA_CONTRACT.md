@@ -1,6 +1,6 @@
-# 게임팩 데이터 계약 1.2
+# 게임팩 데이터 계약 1.3
 
-정규 계약은 `schemas/game_pack.schema.json`이며 실행용 복사본은 `game/content/game_pack.schema.json`이다. 스튜디오는 같은 스키마를 받아 검증한다. 기존 1.0.0 샘플 세 개를 유지하고 기존 맞춤형 1.1.0도 유지하며 새 제작은 1.2.0을 사용한다. 제작 흐름은 [EPISODE_ENGINE.md](EPISODE_ENGINE.md)를 따른다.
+정규 계약은 `schemas/game_pack.schema.json`이며 실행용 복사본은 `game/content/game_pack.schema.json`이다. 스튜디오는 같은 스키마를 받아 검증한다. 기존 1.0.0 샘플 세 개를 유지하고 기존 맞춤형 1.1.0·1.2.0도 유지하며 새 제작은 1.3.0을 사용한다. 제작 흐름은 [EPISODE_ENGINE.md](EPISODE_ENGINE.md)를 따른다.
 
 ## 공통 원칙
 
@@ -12,7 +12,7 @@
 
 | 항목 | 제약과 의미 |
 |---|---|
-| schema_version | 기존 `1.0.0`·`1.1.0` 또는 새 맞춤형 `1.2.0` |
+| schema_version | 기존 `1.0.0`·`1.1.0`·`1.2.0` 또는 새 맞춤형 `1.3.0` |
 | pack_id | 영문 소문자로 시작하는 소문자·숫자·밑줄, 최대 64자. 고객별·에피소드별 구분 |
 | pack_revision | 1~9999. 현재는 같은 개정의 저장만 적용 |
 | characters | 2~16명. player 1명, missing(이야기의 상대) 1명, 나머지 npc |
@@ -45,17 +45,27 @@ NPC는 character_id·position·text로 정의한다. player 역할을 NPC로 배
 
 ## 장식 박스와 이미지
 
-1.2.0의 maps[].props는 선택 배열이며 최대 64개다. 각 항목의 id·name·position·width·height·layer·flip_x를 저장한다. asset_key가 없으면 기본 회색 박스이며, 지정하면 prop PNG에 연결한다. 캐릭터·목표·맵 등과 같은 전역 ID 중복 검사에 포함한다. 장식에는 충돌·전투·상호작용 판정이 없다.
+1.2.0부터 지원하는 maps[].props는 선택 배열이며 최대 64개다. 각 항목의 id·name·position·width·height·layer·flip_x를 저장한다. asset_key가 없으면 기본 회색 박스이며, 지정하면 prop PNG에 연결한다. 캐릭터·목표·맵 등과 같은 전역 ID 중복 검사에 포함한다. 장식에는 충돌·전투·상호작용 판정이 없다.
 
 position은 이미지 아래 중앙이다. 너비 4~256, 높이 4~180이며 이미지 전체가 x 0~맵 너비, y 0~180 안에 있어야 한다. layer는 behind(캐릭터 뒤)/front(캐릭터 앞), flip_x는 좌우 반전이다. 장식 이미지는 바깥 장면에서만 표시하고 공통 실내에서는 숨긴다. 기본 박스와 PNG 모두 같은 저장·미리보기·ZIP 경로를 사용한다. 그림 교체는 배치 정보를 바꾸지 않는다.
 
 ## PNG 에셋과 스프라이트
 
-assets는 최대 32개이며 각 항목에 id·kind·width·height·png_base64를 넣는다. kind는 portrait/sprite_sheet/background/prop이다. 선택 항목 name은 보관함 표시 이름(1~80자)이다. 한 변은 최대 2048, PNG base64 한 항목은 최대 2,000,000자, 전체는 12,000,000자·8,388,608픽셀 이하다. 게임팩 가져오기는 전체 JSON 16,000,000자 이하로 제한한다.
+assets는 최대 32개이며 각 항목에 id·kind·width·height·png_base64를 넣는다. kind는 portrait/sprite_sheet/background/prop이며 1.3.0에서 character_source(재생성용 전신 원본)를 추가한다. 선택 항목 name은 보관함 표시 이름(1~80자)이다. 한 변은 최대 2048, PNG base64 한 항목은 최대 2,000,000자, 전체는 12,000,000자·8,388,608픽셀 이하다. 게임팩 가져오기는 전체 JSON 16,000,000자 이하로 제한한다.
 
 런타임은 PNG 시그니처와 IHDR 크기를 검사해 선언 크기와 일치하는지 확인하고 실제 PNG 디코드까지 검사한다. 압축 전 이미지 한도를 넘는 입력을 디코드하지 않는다. PNG 아닌 데이터·깨진 이미지·다른 kind의 참조는 거부한다.
 
 sprite_sheet에는 frame_width(8~128)·frame_height(8~128)·animations가 필요하다. 이미지 크기는 셀 크기로 나누어져야 한다. animations의 idle/move/attack은 필수이고 jump/crouch/hurt/down은 선택이다. 각 동작은 row(0부터)·frames·fps를 갖는다. 시트를 벗어나는 행·프레임은 거부하고 선택 동작이 없으면 idle을 사용한다. 원본은 오른쪽 방향, 발 기준은 셀 아래 중앙이다. 왼쪽은 반전한다. 이 프레임 정의는 그림 표현을 바꾸며 전투의 피해량·타격 범위·점프 물리를 바꾸지 않는다.
+
+## 전신 자동 생성 (1.3.0)
+
+sprite_sheet에 선택 항목 `display_height`(정수 16~96)를 지정하면 셀 비율을 유지하며 그 높이로 표시한다. 생략하면 기존 셀 크기를 사용한다. 그림의 표시 크기는 이동·공격·피격 영역에 영향을 주지 않는다.
+
+선택 항목 `generation`은 `method: "cutout_v1"`, `source_key`(character_source ID), `settings`를 필수로 갖는다. 생성 시트는 768×672, frame_width/frame_height 모두 96이며 7개 동작과 display_height가 필요하다. 원본 참조가 없거나 종류가 다르면 거부한다. character_source와 생성 정보·display_height는 1.3.0 팩에서 사용한다.
+
+settings는 colors(0/8/16/32/64), remove_background(bool), head_cut(12~38), hip_cut(24~78), torso_width(30~80), center_x(35~65), facing(right/left)를 모두 갖는다. 비율은 정수이며 hip_cut은 head_cut보다 최소 12 커야 한다. 실제 부위 분할·7개 동작 생성 및 보관 방법은 [FULL_BODY_CHARACTERS.md](FULL_BODY_CHARACTERS.md)를 따른다. 생성 정보는 실행 코드가 아닌 재생성용 데이터다.
+
+숫자 enum은 JSON에서 읽은 실수형 값과 같은 정수형 값을 동일하게 비교한다(예: 32와 32.0). 문자열 "32"는 숫자로 취급하지 않으며 각 필드의 type 검사를 유지한다.
 
 ## 저장
 

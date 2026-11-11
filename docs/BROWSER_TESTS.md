@@ -15,7 +15,7 @@ npm test
 
 Linux CI에서는 `npx playwright install --with-deps chromium webkit`으로 시스템 라이브러리도 설치한다. Godot 위치를 자동으로 찾지 못하면 `GODOT_BIN`을 지정한다. 이미 설치된 Chrome을 사용할 때는 `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH`에 실행 파일 경로를 지정할 수 있다. 다른 Playwright 브라우저 캐시를 사용할 때는 표준 `PLAYWRIGHT_BROWSERS_PATH`를 지정한다.
 
-`npm run test:unit`은 웹 셸 단위 검사만 실행한다. `npm run test:browser`는 `tools/build_browser_tests.py`로 테스트 전용 팩을 내보낸 뒤 Playwright를 실행한다. 테스트 서버는 127.0.0.1의 8766·8767 포트를 사용하며 실행 종료 시 정리한다. 별도로 실행 중인 서버를 재사용하지 않는다.
+`npm run test:unit`은 웹 셸·스튜디오·전신 생성 단위 검사를 실행한다. `npm run test:browser`는 `tools/build_browser_tests.py`로 테스트 전용 팩을 내보낸 뒤 Playwright를 실행한다. 테스트 서버는 127.0.0.1의 8766·8767 포트를 사용하며 실행 종료 시 정리한다. 별도로 실행 중인 서버를 재사용하지 않는다.
 
 ## 공개 빌드와 분리
 
@@ -27,7 +27,7 @@ Linux CI에서는 `npx playwright install --with-deps chromium webkit`으로 시
 
 ## 자동 시나리오
 
-Chromium과 WebKit에서 아래 다섯 시나리오씩 총 10개를 실행한다. 제작 엔진은 `studio.spec.mjs`의 여섯 시나리오를 두 브라우저에서 추가해 총 22개다. 추가 검사는 로컬 이미지 변환·시트 생성·초안 재불러오기와 런타임 적용, 두 맵 스토리 완주, 독립 고객 ZIP의 자동 에피소드 실행을 다룬다. 1.2에는 빈 박스·이미지 교체와 실행 취소·재불러오기·실제 게임 적용, 다중 이미지 등록·장면 재사용·드래그와 네 종류 역할 연결, 좁은 터치 화면의 좌표 입력 없는 교체 검사를 추가했다. 상세 사용법은 [ASSET_EDITOR.md](ASSET_EDITOR.md)를 따른다.
+Chromium과 WebKit에서 아래 다섯 시나리오씩 총 10개를 실행한다. 제작 엔진은 `studio.spec.mjs`의 여섯 시나리오를 두 브라우저에서 추가해 총 22개이며, 1.3의 `body.spec.mjs` 세 시나리오를 두 브라우저에서 추가해 총 28개다. 전신 검사는 플레이어·적의 복장/신발 픽셀과 실제 렌더러 적용, 공유 시트 분리·원본 보존·실행 취소·재불러오기, 좁은 화면의 터치 제작을 다룬다. 추가 검사는 로컬 이미지 변환·시트 생성·초안 재불러오기와 런타임 적용, 두 맵 스토리 완주, 독립 고객 ZIP의 자동 에피소드 실행을 다룬다. 1.2에는 빈 박스·이미지 교체와 실행 취소·재불러오기·실제 게임 적용, 다중 이미지 등록·장면 재사용·드래그와 네 종류 역할 연결, 좁은 터치 화면의 좌표 입력 없는 교체 검사를 추가했다. 상세 사용법은 [ASSET_EDITOR.md](ASSET_EDITOR.md)를 따른다.
 
 1. 가로 화면: 실제 메뉴 탭, 데드존, 40px/s 아날로그 반속 이동, 임의 방향 크기 제한, 이동+점프+공격 3점 입력, 이동 손가락만 해제, 취소, 잡고 있는 동안 회전, 회전 후 일시정지·계속하기.
 2. 세로 회전 대체 화면: 같은 입력·메뉴 검사를 변환된 좌표에서 수행.
@@ -49,7 +49,7 @@ Chromium과 WebKit에서 아래 다섯 시나리오씩 총 10개를 실행한다
 
 GitHub Actions는 공개 내보내기 해시·웹 셸·스키마 검사에 더해 Godot 4.7.2 import와 물리 회귀, Chromium/WebKit 브라우저 검사를 실행한다. 모두 통과해야 Pages 업로드·배포가 진행된다. 브라우저 실패 시 `test-results/`의 trace·화면을 보관하고, 프로필 재시작 검사에는 마지막 게임 상태와 화면을 첨부한다.
 
-최신 로컬 결과: Godot 105개 검사·기존 세 팩 완주 10회·웹 셸 17개 검사·브라우저 10개 시나리오 모두 통과했다. 최종 npm test는 약 2분에 완료했다. Chrome 157.0.8103.39와 Playwright WebKit 27.2를 macOS에서 실행했으며, 배포 시 CI에서는 Playwright의 고정 Chromium/WebKit을 사용한다.
+2026-11-11 최신 로컬 결과: Godot 147개 검사·기존 세 팩 완주 10회·웹 셸/스튜디오 단위 39개 검사·브라우저 28개 시나리오 모두 통과했다. 전체 브라우저 검사는 약 2.5분에 완료했다. Chrome 157.0.8103.39와 Playwright WebKit 27.2를 macOS에서 실행했으며, 배포 시 CI에서는 Playwright의 고정 Chromium/WebKit을 사용한다.
 
 ## 실기기에서 남은 확인
 

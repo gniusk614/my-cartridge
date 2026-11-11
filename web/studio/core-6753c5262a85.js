@@ -24,7 +24,7 @@ export function createClue(index) {
   return { id: `scene_${index}_clue`, name: '함께 남긴 기억', text: '그날의 작은 약속을 기억하나요?', memory: '{{player}}와 {{missing}}가 함께 웃었던 순간.', asset_key: 'clue_photo', speaker_id: 'companion' };
 }
 export function createEpisode() {
-  return { schema_version: '1.2.0', pack_id: uid('episode'), pack_revision: 1,
+  return { schema_version: '1.3.0', pack_id: uid('episode'), pack_revision: 1,
     meta: { title: '우리만의 에피소드', locale: 'ko-KR', duration_minutes: 3 },
     characters: [{ id: 'hero', name: '주인공', role: 'player', sprite_key: 'hero_base', appearance: { skin: '#f4cdb3', hair: '#272945', coat: '#6bb8c4', pants: '#252941', scarf: '#f6c77e', hair_style: 'short' } },
       { id: 'companion', name: '소중한 사람', role: 'missing', sprite_key: 'missing_base', appearance: { skin: '#e8b998', hair: '#453247', coat: '#d397a9', pants: '#343449', scarf: '#e5cba1', hair_style: 'long' } }],
@@ -41,7 +41,7 @@ export function addScene(pack) {
 }
 export function upgrade(pack) {
   const result = clone(pack);
-  result.schema_version = '1.2.0'; result.assets ??= []; result.maps ??= [];
+  result.schema_version = '1.3.0'; result.assets ??= []; result.maps ??= [];
   result.chapters.forEach((chapter, i) => {
     if (!chapter.map_id) { const map = createMap(`map_${String(i + 1).padStart(2, '0')}`); result.maps.push(map); chapter.map_id = map.id; }
   });
@@ -77,7 +77,13 @@ export function createProp(asset, at, width) {
 export function assetReferences(pack, id) {
   return pack.characters.reduce((n, c) => n + Number(c.sprite_key === id) + Number(c.portrait_key === id), 0)
     + pack.maps.reduce((n, m) => n + Number(m.background_key === id) + (m.props || []).filter(p => p.asset_key === id).length, 0)
-    + pack.chapters.reduce((n, c) => n + c.enemies.filter(e => e.sprite_key === id).length, 0);
+    + pack.chapters.reduce((n, c) => n + c.enemies.filter(e => e.sprite_key === id).length, 0)
+    + pack.assets.filter(a => a.generation?.source_key === id).length;
+}
+export function reachableAssets(pack) {
+  const used = new Set([...pack.characters.flatMap(c => [c.sprite_key, c.portrait_key]), ...pack.maps.flatMap(m => [m.background_key, ...(m.props || []).map(p => p.asset_key)]), ...pack.chapters.flatMap(c => c.enemies.map(e => e.sprite_key))]);
+  for (const asset of pack.assets) if (used.has(asset.id) && asset.generation) used.add(asset.generation.source_key);
+  return used;
 }
 export function validateEpisode(pack, schema) {
   const errors = [];
@@ -104,7 +110,8 @@ export function validateEpisode(pack, schema) {
   }
   check(pack, schema, 'episode');
   if (errors.length) return errors;
-  if (pack.schema_version !== '1.2.0' && ((pack.assets || []).some(a => a.kind === 'prop') || (pack.maps || []).some(m => m.props?.length))) errors.push('장식 에셋은 스키마 1.2.0을 사용합니다');
+  if (!['1.2.0', '1.3.0'].includes(pack.schema_version) && ((pack.assets || []).some(a => a.kind === 'prop') || (pack.maps || []).some(m => m.props?.length))) errors.push('장식 에셋은 스키마 1.2.0을 사용합니다');
+  if (pack.schema_version !== '1.3.0' && (pack.assets || []).some(a => a.kind === 'character_source' || a.generation || a.display_height !== undefined)) errors.push('전신 생성 에셋은 스키마 1.3.0을 사용합니다');
   const ids = new Set();
   const unique = id => { if (ids.has(id)) errors.push(`${id}: 중복 ID`); ids.add(id); };
   const graph = (items, key, label) => {
@@ -125,6 +132,12 @@ export function validateEpisode(pack, schema) {
       const view = new DataView(raw.buffer);
       if (raw.length < 24 || view.getUint32(0) !== 0x89504e47 || view.getUint32(4) !== 0x0d0a1a0a || view.getUint32(16) !== a.width || view.getUint32(20) !== a.height) errors.push(`${a.id}: PNG 정보 불일치`);
     } catch { errors.push(`${a.id}: 올바른 PNG가 아닙니다`); }
+    if (a.display_height !== undefined && a.kind !== 'sprite_sheet') errors.push(`${a.id}: 그림 높이는 동작 시트에만 지정합니다`);
+    if (a.generation) {
+      if (a.kind !== 'sprite_sheet' || assets.get(a.generation.source_key)?.kind !== 'character_source') errors.push(`${a.id}: 전신 원본 연결 확인`);
+      if (a.frame_width !== 96 || a.frame_height !== 96 || a.width !== 768 || a.height !== 672 || a.display_height === undefined || STATES.some(k => !a.animations?.[k])) errors.push(`${a.id}: 자동 생성 시트 형식 확인`);
+      if (a.generation.settings.hip_cut < a.generation.settings.head_cut + 12) errors.push(`${a.id}: 머리와 허리 경계 확인`);
+    }
     if (a.kind === 'sprite_sheet') {
       if (!a.frame_width || !a.frame_height || !a.animations) errors.push(`${a.id}: 프레임 크기와 애니메이션 필요`);
       else {

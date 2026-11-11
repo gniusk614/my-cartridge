@@ -77,6 +77,7 @@ test('studio converts a local image, generates sprites, validates and roundtrips
   await page.mouse.down(); await page.mouse.move(box.x + 540 * scale, box.y + 113 * scale, { steps: 6 }); await page.mouse.up();
   await expect(page.locator('[data-path="maps.0.npcs.0.position.x"]')).toHaveValue('540');
   await page.locator('[data-tab="character"]').click();
+  await page.locator('.legacy-character summary').click();
   const png = await page.evaluate(() => { const c = document.createElement('canvas'); c.width = c.height = 96; const x = c.getContext('2d'); const g = x.createLinearGradient(0, 0, 96, 96); g.addColorStop(0, '#375583'); g.addColorStop(1, '#efc48c'); x.fillStyle = g; x.fillRect(0, 0, 96, 96); x.fillStyle = '#ad547a'; x.fillRect(24, 20, 48, 55); return c.toDataURL('image/png').split(',')[1]; });
   await page.locator('#portrait-file').setInputFiles({ name: 'character.png', mimeType: 'image/png', buffer: Buffer.from(png, 'base64') });
   await expect.poll(() => page.locator('#portrait-canvas').evaluate(c => c.getContext('2d').getImageData(0, 0, 1, 1).data[3])).toBe(255);

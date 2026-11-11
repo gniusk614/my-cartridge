@@ -9,11 +9,14 @@ func validate(data: Variant) -> Array:
 	if not errors.is_empty(): return errors
 	if data.schema_version == "1.0.0" and (data.chapters.size() != 1 or data.has("maps") or data.has("assets")):
 		errors.append("schema_version: customization requires 1.1.0")
-	if data.schema_version != "1.2.0":
+	if data.schema_version not in ["1.2.0", "1.3.0"]:
 		for asset in data.get("assets", []):
 			if asset.kind == "prop": errors.append("schema_version: props require 1.2.0")
 		for map in data.get("maps", []):
 			if not map.get("props", []).is_empty(): errors.append("schema_version: props require 1.2.0")
+	if data.schema_version != "1.3.0":
+		for asset in data.get("assets", []):
+			if asset.kind == "character_source" or asset.has("generation") or asset.has("display_height"): errors.append("schema_version: whole body assets require 1.3.0")
 	var ids: Dictionary = {}
 	var clues: Array = []
 	var players := 0
@@ -78,6 +81,13 @@ func check_graph(graph: Dictionary, label: String, errors: Array) -> void:
 			if ready: resolved.append(id)
 	if resolved.size() != graph.size(): errors.append(label + ": cyclic or unreachable dependency")
 
+func enum_accepts(value: Variant, choices: Array) -> bool:
+	for choice in choices:
+		if (value is int or value is float) and (choice is int or choice is float):
+			if float(value) == float(choice): return true
+		elif typeof(value) == typeof(choice) and value == choice: return true
+	return false
+
 func check(value: Variant, spec: Dictionary, path: String, errors: Array) -> void:
 	var valid := true
 	match spec.get("type", ""):
@@ -90,7 +100,7 @@ func check(value: Variant, spec: Dictionary, path: String, errors: Array) -> voi
 	if not valid:
 		errors.append(path + ": invalid type")
 		return
-	if spec.has("enum") and value not in spec.enum: errors.append(path + ": not allowed")
+	if spec.has("enum") and not enum_accepts(value, spec.enum): errors.append(path + ": not allowed")
 	if value is Dictionary:
 		for key in spec.get("required", []):
 			if not value.has(key): errors.append(path + ": missing " + key)
@@ -151,6 +161,15 @@ func validate_customization(data: Dictionary, ids: Dictionary, errors: Array) ->
 		characters[character.id] = character
 		check_asset(character.sprite_key, "sprite_sheet", assets, errors, ["hero_base", "missing_base"])
 		if character.has("portrait_key"): check_asset(character.portrait_key, "portrait", assets, errors)
+	for asset in data.get("assets", []):
+		if asset.has("display_height") and asset.kind != "sprite_sheet": errors.append(asset.id + ": display height requires a sprite sheet")
+		if asset.has("generation"):
+			check_asset(asset.generation.source_key, "character_source", assets, errors)
+			if asset.kind != "sprite_sheet" or asset.get("frame_width", 0) != 96 or asset.get("frame_height", 0) != 96 or asset.width != 768 or asset.height != 672 or not asset.has("display_height"):
+				errors.append(asset.id + ": invalid generated sheet format")
+			for action in ["idle", "move", "attack", "jump", "crouch", "hurt", "down"]:
+				if not asset.get("animations", {}).has(action): errors.append(asset.id + ": generated action missing")
+			if asset.generation.settings.hip_cut < asset.generation.settings.head_cut + 12: errors.append(asset.id + ": invalid body boundaries")
 	for clue in data.clues:
 		if clue.has("speaker_id") and not characters.has(clue.speaker_id): errors.append(clue.id + ": unknown speaker")
 	var maps: Dictionary = {}

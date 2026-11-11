@@ -1,15 +1,16 @@
-import { STATES, THEMES, clone, uid, createEpisode, addScene, upgrade, syncCombat, putAsset, validateEpisode, clampProp, createProp, assetReferences } from './core-2aa61d3663df.js';
-import { convertPortrait, avatarSheet, canvasAsset } from './pixel-84ea2d3838ca.js';
+import { STATES, THEMES, clone, uid, createEpisode, addScene, upgrade, syncCombat, putAsset, validateEpisode, clampProp, createProp, assetReferences, reachableAssets } from './core-6753c5262a85.js';
+import { convertPortrait, avatarSheet, canvasAsset } from './pixel-9233d454118c.js';
 import { zipFiles } from './zip-67f8ba4702ac.js';
-import { ASSET_KINDS, importAsset, assetCard } from './assets-cf32f975811e.js';
-import { PROP_PRESETS, presetAsset } from './presets-2cc5b5edba86.js';
+import { ASSET_KINDS, importAsset, assetCard } from './assets-3f1cdf618a2e.js';
+import { PROP_PRESETS, presetAsset } from './presets-b50c8dbbbb58.js';
+import { ActorEditor, actorEntries } from './actor_editor-7b3eac9e9f11.js';
 
 const $ = selector => document.querySelector(selector);
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-const state = { pack: null, scene: 0, character: 0, tab: 'episode', tool: 'select', selection: null, zoom: 1.5, photo: null, converted: null, mini: null, assetFilter: 'all' };
+const state = { pack: null, scene: 0, character: 0, tab: 'episode', tool: 'select', selection: null, zoom: 1.5, photo: null, converted: null, mini: null, assetFilter: 'all', workshopActor: '' };
 const schema = await fetch('./schema.json').then(r => { if (!r.ok) throw new Error('제작 스키마를 불러오지 못했습니다.'); return r.json(); });
 const images = new Map(), decoded = new Map();
-let db, saveTimer, toastTimer, frameReady = false, exporting = false;
+let db, saveTimer, toastTimer, frameReady = false, exporting = false, miniSequence = 0;
 const undo = [], redo = [];
 function remember() { undo.push(clone(state.pack)); if (undo.length > 20) undo.shift(); redo.length = 0; }
 function clearHistory() { undo.length = redo.length = 0; }
@@ -28,6 +29,26 @@ function propArtworkPanel(prop) {
   const assets = state.pack.assets.filter(a => a.kind === 'prop');
   return `<div class="prop-artwork"><h3>박스를 이미지로 바꾸기</h3><p>썸네일을 누르면 위치와 크기를 유지하며 그림만 바뀝니다.</p><div class="artwork-options"><button data-action="clear-prop-image" class="${!prop.asset_key ? 'active' : ''}"><span class="placeholder-icon"></span><span>기본 박스</span></button>${PROP_PRESETS.map(([key, name]) => { const a = presetAsset(key); return `<button data-apply-preset="${key}" aria-label="${name} 그림 적용"><img src="data:image/png;base64,${a.png_base64}" alt=""><span>${name}</span></button>`; }).join('')}${assets.filter(a => !a.id.startsWith('starter_')).map(a => `<button data-apply-asset="${esc(a.id)}" class="${prop.asset_key === a.id ? 'active' : ''}" aria-label="${esc(a.name || '이미지')} 그림 적용"><img src="data:image/png;base64,${a.png_base64}" alt=""><span>${esc(a.name || '내 이미지')}</span></button>`).join('')}</div><label class="file-label">＋ 내 이미지로 바꾸기<input id="object-image-file" type="file" accept="image/png,image/jpeg,image/webp"></label></div>`;
 }
+function actorTarget() {
+  if (!state.pack) return null;
+  const entries = actorEntries(state.pack);
+  if (state.tab === 'map' || state.tab === 'assets') {
+    const selected = state.selection;
+    if (selected?.type === 'enemy') return entries.find(a => a.id === scene().enemies[selected.index]?.id) || null;
+    if (selected?.type === 'spawn') return entries.find(a => a.kind === 'character' && a.ref.role === 'player');
+    if (selected?.type === 'npc') return entries.find(a => a.id === map().npcs[selected.index]?.character_id) || null;
+  }
+  return entries.find(a => a.id === state.workshopActor) || entries.find(a => a.ref === character());
+}
+function selectWorkshopActor(id) {
+  const target = actorEntries(state.pack).find(a => a.id === id); if (!target) return;
+  state.workshopActor = id; state.selection = null; state.photo = state.converted = null;
+  if (target.kind === 'character') state.character = target.characterIndex; else state.scene = target.chapterIndex;
+}
+const bodyEditor = new ActorEditor({ getPack: () => state.pack, getTarget: actorTarget, imageFor, fileImage, esc, toast, download,
+  beforeCommit: remember, invalidate: ids => ids.forEach(id => { images.delete(id); decoded.delete(id); }),
+  onCommitted: target => { state.workshopActor = target.id; if (target.kind === 'character') state.character = target.characterIndex; if (state.tab === 'assets') state.tab = 'character'; changed(); render(); },
+});
 function get(path) { return path.split('.').reduce((v, key) => v?.[key], state.pack); }
 function set(path, value) { const keys = path.split('.'); const key = keys.pop(); const object = keys.reduce((v, k) => v[k], state.pack); object[key] = value; }
 function toast(message) { $('#toast').textContent = message; $('#toast').hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(() => { $('#toast').hidden = true; }, 4500); }
@@ -42,7 +63,7 @@ function assetsPanel() {
   const assets = state.pack.assets.filter(a => state.assetFilter === 'all' || a.kind === state.assetFilter);
   return `<div class="card"><h2>내 이미지 등록</h2>${uploadControl()}<p>등록한 에셋은 여러 장면에서 재사용합니다. 장식은 맵에 추가하고, 배경·초상화·동작 시트는 해당 대상에 연결합니다.</p></div>
   <div class="card"><h2>바로 쓸 수 있는 기본 소품</h2><div class="preset-grid">${presetCards()}</div><p>소품을 누르면 현재 장면에 배치됩니다. 장식에는 충돌이나 전투 판정이 없습니다.</p></div>
-  <div class="card"><div class="row spread"><h2>프로젝트 에셋 · ${state.pack.assets.length}/32</h2><label>종류<select id="asset-filter"><option value="all">전체</option>${Object.entries(ASSET_KINDS).map(([v, label]) => `<option value="${v}" ${state.assetFilter === v ? 'selected' : ''}>${label}</option>`).join('')}</select></label></div><label class="field">인물 적용 대상<select id="asset-character">${state.pack.characters.map((c, i) => `<option value="${i}" ${i === state.character ? 'selected' : ''}>${esc(c.name)}</option>`).join('')}</select></label><p>현재 장면: <strong>${esc(scene().title)}</strong></p><div class="asset-grid">${assets.map(a => assetCard(a, state.pack, esc, false, selectedProp()?.name)).join('') || '<p>등록한 이미지가 없습니다.</p>'}</div></div>`;
+  <div class="card"><div class="row spread"><h2>프로젝트 에셋 · ${state.pack.assets.length}/32</h2><label>종류<select id="asset-filter"><option value="all">전체</option>${Object.entries(ASSET_KINDS).map(([v, label]) => `<option value="${v}" ${state.assetFilter === v ? 'selected' : ''}>${label}</option>`).join('')}</select></label></div><label class="field">캐릭터·적 적용 대상<select id="asset-character">${actorEntries(state.pack).map(a => `<option value="${a.kind === 'enemy' ? 'enemy:' + a.id : a.characterIndex}" ${a.id === actorTarget()?.id ? 'selected' : ''}>${esc(a.name)}</option>`).join('')}</select></label><p>현재 장면: <strong>${esc(scene().title)}</strong></p><div class="asset-grid">${assets.map(a => assetCard(a, state.pack, esc, false, selectedProp()?.name)).join('') || '<p>등록한 이미지가 없습니다.</p>'}</div></div>`;
 }
 function generatedId(c) { return `avatar_${c.id.slice(0, 48)}`; }
 function generateCharacter(c, portrait = null) {
@@ -51,7 +72,7 @@ function generateCharacter(c, portrait = null) {
   putAsset(state.pack, canvasAsset(sheet.canvas, id, 'sprite_sheet', { frame_width: 32, frame_height: 48, animations: sheet.animations }));
   c.sprite_key = id; images.delete(id); decoded.delete(id);
 }
-function fresh() { clearHistory(); const pack = createEpisode(); state.pack = pack; pack.characters.forEach(c => generateCharacter(c)); return pack; }
+function fresh() { clearHistory(); state.workshopActor = ''; const pack = createEpisode(); state.pack = pack; pack.characters.forEach(c => generateCharacter(c)); return pack; }
 function changed() {
   $('#save-state').textContent = '저장 중…';
   clearTimeout(saveTimer); saveTimer = setTimeout(save, 400);
@@ -114,9 +135,15 @@ function mapPanel() {
   <div class="grid">${Object.keys(THEMES.garden).map((key, i) => field(['하늘', '바닥', '건물·나무', '조명·장식'][i], `maps.${mi}.palette.${key}`, 'color')).join('')}</div><label class="file-label">직접 만든 배경 이미지 넣기<input id="background-file" type="file" accept="image/png,image/jpeg,image/webp"></label><p>배경 그림과 실제 발판·출입구 배치는 각각 편집합니다.</p>${m.background_key ? '<button data-action="remove-background">배경 이미지 해제</button>' : ''}</details>`;
 }
 function characterPanel() {
+  const target = actorTarget();
+  const options = actorEntries(state.pack).map(a => `<option value="${a.id}" ${a.id === target.id ? 'selected' : ''}>${a.kind === 'enemy' ? '적 · ' : ''}${esc(a.name)}</option>`).join('');
+  const picker = `<div class="card actor-target-card"><label class="field">편집할 캐릭터·적<select id="actor-workshop-target">${options}</select></label><div class="character-list">${state.pack.characters.map((c, i) => `<button data-character="${i}" class="${c.id === target.id ? 'active' : ''}">${esc(c.name)}</button>`).join('')}<button data-action="add-character">＋ 캐릭터</button></div></div>`;
+  const info = target.kind === 'character' ? `<div class="card"><div class="row spread"><h2>등장인물</h2><button class="small danger" data-action="delete-character">캐릭터 삭제</button></div><div class="grid">${field('이름', `${target.path}.name`)}${field('역할', `${target.path}.role`, 'select', [['player', '플레이어'], ['missing', '이야기의 상대'], ['npc', '대화 인물']])}</div></div>` : `<div class="card"><h2>${esc(target.name)}</h2>${field('적 종류', `${target.path}.type`, 'select', [['street_thug', '일반 적'], ['bruiser', '강적']])}<p>그림을 바꿔도 체력·공격 판정·등장 조건은 유지됩니다.</p></div>`;
+  return picker + info + bodyEditor.panel(target) + (target.kind === 'character' ? `<details class="legacy-character"><summary>기본 도형 외형 · 대화 초상화 · 기존 시트 설정</summary>${legacyCharacterPanel()}</details>` : '');
+}
+function legacyCharacterPanel() {
   const c = character(), path = `characters.${state.character}`, asset = state.pack.assets.find(a => a.id === c.sprite_key);
-  return `<div class="character-list">${state.pack.characters.map((c, i) => `<button data-character="${i}" class="${i === state.character ? 'active' : ''}">${esc(c.name)}</button>`).join('')}<button data-action="add-character">＋ 캐릭터</button></div>
-  <div class="card"><div class="row spread"><h2>등장인물 설정</h2><button class="small danger" data-action="delete-character">캐릭터 삭제</button></div><div class="grid">${field('이름', `${path}.name`)}${field('역할', `${path}.role`, 'select', [['player', '플레이어'], ['missing', '이야기의 상대'], ['npc', '대화 인물']])}</div><div class="grid three">${['skin', 'hair', 'coat', 'pants', 'scarf'].map((key, i) => field(['피부', '머리', '상의', '바지', '포인트'][i], `${path}.appearance.${key}`, 'color')).join('')}${field('머리 형태', `${path}.appearance.hair_style`, 'select', [['short', '짧은 머리'], ['long', '긴 머리']])}</div></div>
+  return `  <div class="card"><div class="row spread"><h2>등장인물 설정</h2><button class="small danger" data-action="delete-character">캐릭터 삭제</button></div><div class="grid three">${['skin', 'hair', 'coat', 'pants', 'scarf'].map((key, i) => field(['피부', '머리', '상의', '바지', '포인트'][i], `${path}.appearance.${key}`, 'color')).join('')}${field('머리 형태', `${path}.appearance.hair_style`, 'select', [['short', '짧은 머리'], ['long', '긴 머리']])}</div></div>
   <div class="card"><h2>사진·그림을 도트 초상화로</h2><div class="upload-grid"><div><canvas id="portrait-canvas" class="portrait-preview checker" width="64" height="64" aria-label="도트 초상화"></canvas><label class="file-label">캐릭터 이미지 선택<input id="portrait-file" type="file" accept="image/png,image/jpeg,image/webp"></label></div><div><div class="grid"><label class="field">해상도<select id="pixel-size"><option>32</option><option>48</option><option selected>64</option><option>96</option></select></label><label class="field">팔레트 색 수<select id="pixel-colors"><option>8</option><option selected>16</option><option>32</option></select></label></div><label class="field">자르기 좌우<input type="range" id="crop-x" min="0" max="1" step="0.01" value="0.5"></label><label class="field">자르기 상하<input type="range" id="crop-y" min="0" max="1" step="0.01" value="0.5"></label><label><input id="remove-bg" type="checkbox">모서리와 비슷한 배경색 지우기</label><div class="actions"><button data-action="apply-portrait" class="primary">초상화 적용</button><button data-action="download-portrait">PNG 받기</button></div></div></div><p class="inline-note">픽셀 크기와 색 수를 줄여 도트 스타일로 바꿉니다. 인물의 자세를 새로 그리는 AI 변환은 아닙니다. 얼굴이 잘 보이도록 이미지를 자른 뒤 사용하세요.</p></div>
   <div class="card"><h2>외부 시트 없이 공통 동작 생성</h2><p>외형 설정으로 대기·걷기·공격·점프·앉기·피격·쓰러짐 7개 동작을 생성합니다. 고정된 32×48 픽셀 동작 템플릿이며, 사진 한 장에서 새로운 전신 자세를 추론하지 않습니다.</p><label><input id="use-portrait-head" type="checkbox">적용된 도트 초상화를 템플릿의 얼굴에 사용</label><div class="actions"><button data-action="generate-sheet" class="primary">동작 템플릿 생성</button><button data-action="download-sheet">스프라이트시트 PNG 받기</button></div>${asset ? `<p class="hint">현재 연결: ${esc(asset.id)} · ${asset.width}×${asset.height}</p><img class="sheet-preview checker" src="data:image/png;base64,${asset.png_base64}" alt="현재 캐릭터 스프라이트시트">` : ''}</div>
   <div class="card"><h2>직접 만든·외부 스프라이트시트 등록</h2><label class="file-label">PNG 시트 선택<input id="sheet-file" type="file" accept="image/png"></label><p>모든 칸의 크기가 같은 PNG 시트를 사용합니다. 기본 방향은 오른쪽, 캐릭터의 발은 칸 아래쪽 중앙입니다.</p>${asset ? `<div class="grid">${field('칸 너비', `assets.${state.pack.assets.indexOf(asset)}.frame_width`, 'number')}${field('칸 높이', `assets.${state.pack.assets.indexOf(asset)}.frame_height`, 'number')}</div><div class="animation-grid"><span>동작</span><span>행 (0부터)</span><span>프레임 수</span><span>초당 프레임</span>${STATES.map((name, i) => { const a = state.pack.assets.indexOf(asset); asset.animations[name] ??= clone(asset.animations.idle); return `<span>${['대기', '이동', '공격', '점프', '앉기', '피격', '쓰러짐'][i]}</span>${['row', 'frames', 'fps'].map(k => `<input type="number" aria-label="${name} ${k}" data-path="assets.${a}.animations.${name}.${k}" value="${asset.animations[name][k]}">`).join('')}`; }).join('')}</div>` : ''}<p>외부 리소스를 사용할 때는 재배포·상업 이용 범위를 확인하세요.</p></div>`;
@@ -134,7 +161,7 @@ function deliveryPanel() {
   <div class="card"><h2>이 엔진의 제작 범위</h2><p>가로 액션·탐색형 에피소드, 최대 8장면·16명 등장인물·32개 PNG 에셋을 지원합니다. 배경과 발판·적·기억·대화 위치를 편집할 수 있습니다. 사진 기반 AI 재그림·고유 전신 동작 생성·타일맵 전용 편집·임의 게임 장르·온라인 협동·결제·고객별 호스팅 관리는 후속 확장입니다.</p></div>`;
 }
 function render() {
-  const previousScroll = $('.map-viewport')?.scrollLeft || 0, geometryOpen = $('.object-geometry')?.open;
+  const previousScroll = $('.map-viewport')?.scrollLeft || 0, geometryOpen = $('.object-geometry')?.open, rigOpen = $('#rig-settings')?.open, legacyOpen = $('.legacy-character')?.open, pickerOpen = $('.actor-sheet-picker')?.open;
   const [eyebrow, title] = titles[state.tab]; $('#page-eyebrow').textContent = eyebrow; $('#page-title').textContent = title;
   $('#project-name').textContent = state.pack.meta.title;
   document.querySelectorAll('[data-tab]').forEach(b => b.classList.toggle('active', b.dataset.tab === state.tab));
@@ -143,10 +170,13 @@ function render() {
   if ($('#map-zoom')) $('#map-zoom').value = state.zoom;
   const mode = $(`[data-path="chapters.${state.scene}.mechanics"]`); if (mode) mode.value = scene().enemies.length ? 'combat' : 'story';
   if (state.tab === 'map') bindMap();
-  if (state.tab === 'character') { drawPortrait(); bindFiles(); }
+  if (state.tab === 'character') { if ($('#portrait-canvas')) drawPortrait(); bindFiles(); bodyEditor.bind().catch(error => toast(error.message)); $('#actor-workshop-target').onchange = event => { selectWorkshopActor(event.target.value); render(); }; }
   if (state.tab === 'map') bindFiles();
   if (state.tab === 'map' || state.tab === 'assets') bindAssets();
-  renderSelection(); updateValidation(); prepareMini(); drawMap();
+  renderSelection(); updateValidation(); prepareMini().catch(error => toast(error.message)); drawMap();
+  if (rigOpen && $('#rig-settings')) $('#rig-settings').open = true;
+  if (legacyOpen && $('.legacy-character')) $('.legacy-character').open = true;
+  if (pickerOpen && $('.actor-sheet-picker')) $('.actor-sheet-picker').open = true;
   if (geometryOpen && $('.object-geometry')) $('.object-geometry').open = true;
   const viewport = $('.map-viewport');
   if (viewport) { viewport.scrollLeft = previousScroll; const selected = entities().find(e => e.type === state.selection?.type && e.index === state.selection.index); if (selected && (selected.point.x * state.zoom < viewport.scrollLeft || selected.point.x * state.zoom > viewport.scrollLeft + viewport.clientWidth)) viewport.scrollLeft = selected.point.x * state.zoom - viewport.clientWidth / 2; }
@@ -170,7 +200,9 @@ function renderSelection() {
     // Put the picture choices first; coordinates are an optional advanced step.
     html = html.slice(0, html.indexOf('<div class="grid">')) + propArtworkPanel(map().props[e.index]) + `<details class="object-geometry"><summary>위치 · 크기 · 겹침 설정</summary>${field('장식 이름', `${base}.name`)}<div class="grid">${field('X', `${base}.position.x`, 'number')}${field('Y', `${base}.position.y`, 'number')}${field('그림 너비', `${base}.width`, 'number')}${field('그림 높이', `${base}.height`, 'number')}${field('겹침 순서', `${base}.layer`, 'select', [['behind', '캐릭터 뒤'], ['front', '캐릭터 앞']])}</div><label><input type="checkbox" data-path="${base}.flip_x" ${map().props[e.index].flip_x ? 'checked' : ''}>좌우 반전</label></details><p class="hint">장식은 그림만 표시하며 이동·전투 판정을 바꾸지 않습니다.</p>`;
   }
+  if (['spawn', 'npc', 'enemy'].includes(e.type)) html += bodyEditor.panel(actorTarget());
   target.innerHTML = html;
+  if (['spawn', 'npc', 'enemy'].includes(e.type)) bodyEditor.bind().catch(error => toast(error.message));
   $('#object-image-file')?.addEventListener('change', event => { const prop = selectedProp(); if (prop) importFiles(event.target.files, 'prop', null, prop.id).catch(error => toast(error.message)); });
 }
 async function imageFor(asset) {
@@ -179,15 +211,19 @@ async function imageFor(asset) {
   return images.get(asset.id);
 }
 async function prepareMini() {
-  const c = character(); $('#actor-name').textContent = c.name;
+  const sequence = ++miniSequence;
+  const target = actorTarget(), c = target?.ref || character(); $('#actor-name').textContent = target?.name || c.name;
   const asset = state.pack.assets.find(a => a.id === c.sprite_key);
-  state.mini = asset ? { image: await imageFor(asset), asset } : { image: avatarSheet(c.appearance).canvas, asset: { frame_width: 32, frame_height: 48, animations: { idle: { row: 0, frames: 4, fps: 8 } } } };
+  const mini = asset ? { image: await imageFor(asset), asset } : { image: avatarSheet(c.appearance || (target?.kind === 'enemy' ? { coat: c.type === 'bruiser' ? '#a78ac9' : '#d36d81' } : {})).canvas, asset: { frame_width: 32, frame_height: 48, animations: { idle: { row: 0, frames: 4, fps: 8 } } } };
+  if (sequence === miniSequence) state.mini = mini;
 }
 setInterval(() => {
+  bodyEditor.tick();
   const mini = state.mini; if (!mini) return;
   const canvas = $('#actor-mini'), ctx = canvas.getContext('2d'); ctx.clearRect(0, 0, 96, 144); ctx.imageSmoothingEnabled = false;
   const a = mini.asset, spec = a.animations.idle, f = Math.floor(performance.now() / 1000 * spec.fps) % spec.frames;
-  ctx.drawImage(mini.image, f * a.frame_width, spec.row * a.frame_height, a.frame_width, a.frame_height, 0, 0, 96, 144);
+  const scale = Math.min(96 / a.frame_width, 144 / a.frame_height), w = a.frame_width * scale, h = a.frame_height * scale;
+  ctx.drawImage(mini.image, f * a.frame_width, spec.row * a.frame_height, a.frame_width, a.frame_height, (96 - w) / 2, 144 - h, w, h);
 }, 120);
 function drawMap() {
   const canvas = $('#map-canvas'); if (!canvas || !state.pack) return;
@@ -209,7 +245,18 @@ function drawMap() {
     }
   }
   paintProps('behind');
+  function actorArtwork(e) {
+    const ref = e.type === 'spawn' ? state.pack.characters.find(c => c.role === 'player') : e.type === 'npc' ? state.pack.characters.find(c => c.id === m.npcs[e.index].character_id) : e.type === 'enemy' ? scene().enemies[e.index] : null;
+    const asset = state.pack.assets.find(a => a.id === ref?.sprite_key && a.kind === 'sprite_sheet'); if (!asset) return false;
+    const image = decoded.get(asset.id); if (!image) { imageFor(asset).then(image => { if (canvas.isConnected && map() === m && image) drawMap(); }).catch(error => toast(error.message)); return false; }
+    const h = asset.display_height || asset.frame_height, w = asset.frame_width / asset.frame_height * h, at = e.point;
+    ctx.save(); ctx.translate(at.x, at.y); ctx.scale(e.type === 'spawn' ? 1 : -1, 1); ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(image, 0, asset.animations.idle.row * asset.frame_height, asset.frame_width, asset.frame_height, -w / 2, -h, w, h); ctx.restore();
+    if (state.selection?.type === e.type && state.selection.index === e.index) { ctx.strokeStyle = '#8bd1bf'; ctx.strokeRect(at.x - w / 2 - 2, at.y - h - 2, w + 4, h + 4); }
+    return true;
+  }
   for (const e of entities()) {
+    if (actorArtwork(e)) continue;
     const { x, y } = e.point; ctx.fillStyle = e.type === 'enemy' ? '#e48e9f' : e.type === 'clue' ? '#ffe4aa' : e.type === 'spawn' ? '#8bd1bf' : e.type === 'npc' ? '#c4a3d7' : '#edbd83';
     if (e.type === 'surface' || e.type === 'prop') continue;
     if (e.type === 'clue') ctx.fillRect(x - 4, y - 14, 8, 10);
@@ -256,10 +303,13 @@ function applyPreset(key) {
 }
 function useAsset(id, at = null) {
   const asset = state.pack.assets.find(a => a.id === id); if (!asset) return;
+  if (asset.kind === 'sprite_sheet') return bodyEditor.applySheet(id);
+  if (asset.kind === 'character_source') return bodyEditor.generate(asset);
+  if (asset.kind === 'portrait' && actorTarget()?.kind === 'enemy') return toast('대화 초상화는 이야기의 등장인물을 선택해 적용해 주세요.');
   if (asset.kind === 'prop' && map().props.length >= 64) return toast('장식은 장면당 64개까지 배치할 수 있습니다.');
   const center = at || visibleMapCenter(); remember();
   if (asset.kind === 'prop') { map().props.push(createProp(asset, center, map().width)); selectedAdded('prop', map().props.length - 1); toast('맵에 추가했습니다. 그림을 끌어 이동하거나 아래에서 크기를 바꾸세요.'); }
-  else { if (asset.kind === 'background') { map().background_key = id; state.tab = 'map'; } else { character()[asset.kind === 'portrait' ? 'portrait_key' : 'sprite_key'] = id; state.tab = 'character'; state.converted = state.photo = null; } state.selection = null; changed(); render(); toast('에셋을 연결했습니다. 플레이에서 확인해 보세요.'); }
+  else { if (asset.kind === 'background') { map().background_key = id; state.tab = 'map'; } else { const target = actorTarget(); target.ref.portrait_key = id; state.character = target.characterIndex; state.workshopActor = target.id; state.tab = 'character'; state.converted = state.photo = null; } state.selection = null; changed(); render(); toast('에셋을 연결했습니다. 플레이에서 확인해 보세요.'); }
 }
 function usePreset(key, at = null) {
   if (map().props.length >= 64) return toast('장식은 장면당 64개까지 배치할 수 있습니다.');
@@ -299,7 +349,7 @@ async function importFiles(files, kind, at = null, targetId = null) {
 function bindAssets() {
   $('#asset-files')?.addEventListener('change', event => { const files = event.target.files, kind = $('#asset-kind').value; importFiles(files, kind).catch(error => toast(error.message)); });
   $('#asset-filter')?.addEventListener('change', event => { state.assetFilter = event.target.value; render(); });
-  $('#asset-character')?.addEventListener('change', event => { state.character = Number(event.target.value); render(); });
+  $('#asset-character')?.addEventListener('change', event => { const value = event.target.value; selectWorkshopActor(value.startsWith('enemy:') ? value.slice(6) : state.pack.characters[Number(value)].id); render(); });
   const zone = $('#asset-dropzone');
   if (zone) { zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('drag-over'); }); zone.addEventListener('dragleave', () => zone.classList.remove('drag-over')); zone.addEventListener('drop', e => { e.preventDefault(); zone.classList.remove('drag-over'); if (e.dataTransfer.files.length) importFiles(e.dataTransfer.files, $('#asset-kind').value).catch(error => toast(error.message)); }); }
   $('#scene-picker')?.addEventListener('change', event => { state.scene = Number(event.target.value); state.selection = null; state.tool = 'select'; render(); });
@@ -441,14 +491,14 @@ async function action(name) {
     state.scene = Math.max(0, state.scene - 1); state.selection = null;
   }
   if (name === 'scene-up' || name === 'scene-down') { const next = state.scene + (name === 'scene-up' ? -1 : 1); if (next < 0 || next >= state.pack.chapters.length) return; [state.pack.chapters[state.scene], state.pack.chapters[next]] = [state.pack.chapters[next], state.pack.chapters[state.scene]]; state.scene = next; state.selection = null; }
-  if (name === 'add-character') { if (state.pack.characters.length >= 16) return toast('최대 16명까지 등록할 수 있습니다.'); const c = { id: uid('person'), name: '새로운 인물', role: 'npc', sprite_key: 'missing_base', appearance: clone(state.pack.characters[0].appearance) }; state.pack.characters.push(c); generateCharacter(c); state.character = state.pack.characters.length - 1; state.photo = state.converted = null; }
+  if (name === 'add-character') { if (state.pack.characters.length >= 16) return toast('최대 16명까지 등록할 수 있습니다.'); const c = { id: uid('person'), name: '새로운 인물', role: 'npc', sprite_key: 'missing_base', appearance: clone(state.pack.characters[0].appearance) }; state.pack.characters.push(c); generateCharacter(c); state.character = state.pack.characters.length - 1; state.workshopActor = c.id; state.photo = state.converted = null; }
   if (name === 'delete-character') { const c = character(); if (['player', 'missing'].includes(c.role) || state.pack.characters.length <= 2) return toast('플레이어와 최소 두 등장인물을 유지해 주세요.'); state.pack.characters.splice(state.character, 1); state.pack.maps.forEach(m => { m.npcs = m.npcs.filter(n => n.character_id !== c.id); }); state.pack.clues.forEach(clue => { if (clue.speaker_id === c.id) delete clue.speaker_id; }); state.character = 0; }
   if (name === 'apply-portrait') { if (!state.converted) return toast('이미지를 먼저 선택해 주세요.'); const id = `portrait_${character().id.slice(0, 46)}`; putAsset(state.pack, canvasAsset(state.converted, id, 'portrait')); character().portrait_key = id; images.delete(id); decoded.delete(id); toast('도트 초상화를 대화와 이야기에 연결했습니다.'); }
   if (name === 'download-portrait') { const a = state.pack.assets.find(a => a.id === character().portrait_key); if (!state.converted && !a) return toast('이미지를 먼저 선택해 주세요.'); if (state.converted) return state.converted.toBlob(blob => download(blob, 'portrait.png')); return download(new Blob([Uint8Array.from(atob(a.png_base64), c => c.charCodeAt(0))], { type: 'image/png' }), 'portrait.png'); }
   if (name === 'generate-sheet') { const portrait = $('#use-portrait-head')?.checked ? await imageFor(state.pack.assets.find(a => a.id === character().portrait_key)) : null; generateCharacter(character(), portrait); toast('공통 동작 7개를 생성하고 캐릭터에 연결했습니다.'); }
   if (name === 'download-sheet') { const a = state.pack.assets.find(a => a.id === character().sprite_key); if (!a) return toast('동작 템플릿을 먼저 생성해 주세요.'); return download(new Blob([Uint8Array.from(atob(a.png_base64), c => c.charCodeAt(0))], { type: 'image/png' }), `${character().id}-sprites.png`); }
   if (name === 'remove-background') delete map().background_key;
-  if (name === 'prune-assets') { const before = state.pack.assets.length; state.pack.assets = state.pack.assets.filter(a => assetReferences(state.pack, a.id)); toast(`연결되지 않은 에셋 ${before - state.pack.assets.length}개를 정리했습니다.`); }
+  if (name === 'prune-assets') { const before = state.pack.assets.length; const used = reachableAssets(state.pack); state.pack.assets = state.pack.assets.filter(a => used.has(a.id)); toast(`연결되지 않은 에셋 ${before - state.pack.assets.length}개를 정리했습니다.`); }
   if (name === 'duplicate-object' && state.selection) {
     const { type, index } = state.selection, at = entities().find(e => e.type === type && e.index === index)?.point;
     if (!at || ['spawn', 'door'].includes(type)) return;
@@ -481,7 +531,7 @@ document.addEventListener('click', event => {
   if (button.dataset.deleteAsset) { const id = button.dataset.deleteAsset; if (!assetReferences(state.pack, id)) { remember(); state.pack.assets = state.pack.assets.filter(a => a.id !== id); images.delete(id); decoded.delete(id); changed(); render(); } }
   if (button.dataset.tab) { state.tab = button.dataset.tab; render(); }
   if (button.dataset.scene) { state.scene = Number(button.dataset.scene); state.selection = null; render(); }
-  if (button.dataset.character) { state.character = Number(button.dataset.character); state.photo = state.converted = null; render(); }
+  if (button.dataset.character) { state.character = Number(button.dataset.character); state.workshopActor = character().id; state.photo = state.converted = null; render(); }
   if (button.dataset.tool) { state.tool = button.dataset.tool; render(); }
   if (button.dataset.entity) { const [type, index] = button.dataset.entity.split(':'); state.selection = { type, index: Number(index) }; render(); }
   if (button.dataset.action) action(button.dataset.action).catch(error => toast(error.message));
@@ -507,7 +557,7 @@ document.addEventListener('change', event => {
   if (/^maps\.\d+\.props\./.test(path) && state.selection?.type === 'prop') clampProp(map().props[state.selection.index], map().width);
   if (path === `maps.${mapIndex()}.theme`) map().palette = { ...THEMES[map().theme] };
   if (path === `maps.${mapIndex()}.width` && map().width >= 640 && map().width <= 1920) clampMap();
-  if (/characters\.\d+\.appearance\./.test(path) && character().sprite_key === generatedId(character())) generateCharacter(character());
+  if (/characters\.\d+\.appearance\./.test(path) && character().sprite_key === generatedId(character()) && !state.pack.assets.find(a => a.id === character().sprite_key)?.generation) generateCharacter(character());
   if (/chapters\.\d+\.enemies\.\d+\.type$/.test(path)) { syncCombat(scene()); state.selection = null; }
   changed(); render();
 });
@@ -515,7 +565,7 @@ for (const id of ['validate', 'preview', 'export-json', 'export-game']) $(`#${id
 $('#add-scene').addEventListener('click', () => action('add-scene'));
 $('#close-preview').addEventListener('click', () => { $('#preview-dialog').close(); $('#game-frame').src = 'about:blank'; frameReady = false; });
 $('#preview-dialog').addEventListener('cancel', () => { $('#game-frame').src = 'about:blank'; frameReady = false; });
-$('#new-project').addEventListener('click', async () => { await save(); fresh(); state.scene = state.character = 0; state.selection = null; state.photo = state.converted = null; state.tab = 'episode'; images.clear(); decoded.clear(); render(); changed(); });
+$('#new-project').addEventListener('click', async () => { await save(); fresh(); state.scene = state.character = 0; state.workshopActor = ''; state.selection = null; state.photo = state.converted = null; state.tab = 'episode'; images.clear(); decoded.clear(); render(); changed(); });
 $('#import-project').addEventListener('click', () => $('#project-file').click());
 $('#project-file').addEventListener('change', async event => {
   try {
@@ -524,12 +574,12 @@ $('#project-file').addEventListener('change', async event => {
     const next = upgrade(raw); if (['demo_snowy_rescue', 'demo_blue_umbrella', 'demo_dawn_walk'].includes(next.pack_id)) next.pack_id = uid('episode');
     images.clear(); decoded.clear(); await Promise.all(next.assets.map(imageFor));
     await save(); clearHistory(); state.pack = next; state.pack.characters.forEach(c => { c.appearance ??= { ...createEpisode().characters[0].appearance }; }); images.clear(); decoded.clear();
-    await Promise.all(state.pack.assets.map(imageFor)); state.scene = state.character = 0; state.selection = null; state.photo = state.converted = null; render(); changed(); toast('제작 원본을 불러왔습니다.');
+    await Promise.all(state.pack.assets.map(imageFor)); state.scene = state.character = 0; state.workshopActor = ''; state.selection = null; state.photo = state.converted = null; render(); changed(); toast('제작 원본을 불러왔습니다.');
   } catch (error) { toast(error.message); } finally { event.target.value = ''; }
 });
 $('#projects').addEventListener('change', async event => {
   const id = event.target.value; await save(); const record = await new Promise((resolve, reject) => { const r = db.transaction('projects').objectStore('projects').get(id); r.onsuccess = () => resolve(r.result); r.onerror = reject; });
-  if (record) { clearHistory(); state.pack = upgrade(record.pack); state.scene = state.character = 0; state.selection = null; images.clear(); decoded.clear(); state.photo = state.converted = null; render(); $('#save-state').textContent = '이 브라우저에 저장됨'; }
+  if (record) { clearHistory(); state.pack = upgrade(record.pack); state.scene = state.character = 0; state.workshopActor = ''; state.selection = null; images.clear(); decoded.clear(); state.photo = state.converted = null; render(); $('#save-state').textContent = '이 브라우저에 저장됨'; }
 });
 try {
   db = await new Promise((resolve, reject) => { const r = indexedDB.open('my-cartridge-studio', 1); r.onupgradeneeded = () => r.result.createObjectStore('projects', { keyPath: 'id' }); r.onsuccess = () => resolve(r.result); r.onerror = () => reject(r.error); r.onblocked = () => reject(new Error('제작 저장소를 열 수 없습니다.')); });

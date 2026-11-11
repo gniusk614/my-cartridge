@@ -37,7 +37,7 @@ func snapshot(_arguments: Array) -> void:
 			"hp": game.player.hp, "elevation": game.player.elevation,
 			"grounded": game.player.grounded, "attack_clock": game.player.attack_clock,
 			"attack_id": game.player.attack_id, "stun": game.player.stun,
-			"facing": game.player.facing, "sprite_key": game.player.sprite_key,
+			"facing": game.player.facing, "sprite_key": game.player.sprite_key, "render_size": point(AssetLibrary.actor_size(game.player.sprite_key)),
 		}
 		data.chapter_index = GameSession.chapter_index()
 		data.map_id = game.stage.map_data.get("id", "winter_street")
@@ -50,5 +50,5 @@ func snapshot(_arguments: Array) -> void:
 		data.complete = game.quest.is_complete()
 		for actor in game.actors.get_children():
 			if actor.team == "enemy" and actor.hp > 0:
-				data.enemies.append({"position": point(actor.position), "hp": actor.hp})
+				data.enemies.append({"position": point(actor.position), "hp": actor.hp, "id": actor.actor_id, "sprite_key": actor.sprite_key, "render_size": point(AssetLibrary.actor_size(actor.sprite_key))})
 	JavaScriptBridge.get_interface("window").myCartridgeTestState = JSON.stringify(data)

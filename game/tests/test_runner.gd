@@ -299,6 +299,7 @@ func run() -> void:
 	for i in 3: await process_frame
 	game.ui.apply_layout()
 	await test_custom_episode()
+	await test_full_body_art()
 	print("RESULT: %d checks, %d failures" % [checks, failures])
 	game.free()
 	await process_frame
@@ -490,3 +491,52 @@ func test_custom_episode() -> void:
 	session.storage.write_save(forged)
 	game.start(true)
 	expect(session.chapter_index() == 0 and session.progress.completed_objective_ids.is_empty(), "resume cannot skip unfinished earlier scenes using stale completion flags")
+
+
+func test_full_body_art() -> void:
+	var pack: Dictionary = loader.load_pack(loader.PACKS[0]).duplicate(true)
+	pack.schema_version = "1.3.0"
+	pack.pack_id = "test_full_body"
+	var reference := Image.create(32, 64, false, Image.FORMAT_RGBA8)
+	reference.fill(Color("538a98"))
+	var sheet := Image.create(768, 672, false, Image.FORMAT_RGBA8)
+	sheet.fill(Color.TRANSPARENT)
+	for row in 7:
+		for col in 8: sheet.fill_rect(Rect2i(col * 96 + 32, row * 96 + 8, 32, 84), Color("538a98"))
+	var animations := {}
+	var actions := ["idle", "move", "attack", "jump", "crouch", "hurt", "down"]
+	for i in actions.size(): animations[actions[i]] = {"row": i, "frames": 8, "fps": 8}
+	pack.assets = [
+		{"id": "body_reference", "kind": "character_source", "width": 32, "height": 64, "png_base64": Marshalls.raw_to_base64(reference.save_png_to_buffer())},
+		{"id": "body_generated", "kind": "sprite_sheet", "width": 768, "height": 672, "png_base64": Marshalls.raw_to_base64(sheet.save_png_to_buffer()), "frame_width": 96, "frame_height": 96, "display_height": 48, "animations": animations, "generation": {"method": "cutout_v1", "source_key": "body_reference", "settings": {"colors": 32, "remove_background": true, "head_cut": 24, "hip_cut": 60, "torso_width": 58, "center_x": 50, "facing": "right"}}},
+	]
+	pack.characters[0].sprite_key = "body_generated"
+	pack.chapters[0].enemies[0].sprite_key = "body_generated"
+	expect(loader.validator.validate(pack).is_empty(), "whole body source and generated actions validate for hero and enemy")
+	expect(loader.validator.validate(JSON.parse_string(JSON.stringify(pack))).is_empty(), "numeric color enum accepts native integers and JSON numbers equally")
+	for mutation in ["source", "grid", "size", "colors", "boundaries", "version", "action"]:
+		var bad: Dictionary = pack.duplicate(true)
+		match mutation:
+			"source": bad.assets[0].kind = "portrait"
+			"grid": bad.assets[1].frame_height = 48
+			"size": bad.assets[1].display_height = 999
+			"colors": bad.assets[1].generation.settings.colors = 999
+			"boundaries": bad.assets[1].generation.settings.hip_cut = 30
+			"version": bad.schema_version = "1.2.0"
+			"action": bad.assets[1].animations.erase("down")
+		expect(not loader.validator.validate(bad).is_empty(), "reject whole body " + mutation)
+	expect(loader.register_pack(pack).is_empty(), "whole body pack registers without modifying character gameplay")
+	game.selected = loader.available_packs().find(pack.pack_id)
+	game.start(false)
+	game.play()
+	var library = root.get_node("AssetLibrary")
+	expect(library.actor_size("body_generated") == Vector2(48, 48), "96 pixel cells draw at configured game height")
+	expect(game.player.sprite_key == "body_generated", "player uses complete generated image")
+	game.player.position.x = 150
+	game.spawn_enemies()
+	var enemy = null
+	for actor in game.actors.get_children():
+		if actor.team == "enemy": enemy = actor
+	expect(enemy != null and enemy.sprite_key == "body_generated", "enemy uses complete generated image")
+	expect(game.player.speed == 80 and enemy.max_hp == 35 and game.player.hurtbox.get_child(0).shape.size == Vector2(14, 14), "art size leaves speed HP and combat hurtbox unchanged")
+	await process_frame

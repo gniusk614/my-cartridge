@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "test": "npm run test:unit && npm run test:browser",
-    "test:unit": "node --test tools/test_web_shell.mjs tools/test_studio.mjs",
+    "test:unit": "node --test tools/test_web_shell.mjs tools/test_studio.mjs tools/test_body.mjs",
     "test:browser": "python3 tools/build_browser_tests.py && playwright test"
   },
   "devDependencies": {
