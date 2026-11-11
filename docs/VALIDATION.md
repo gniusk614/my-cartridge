@@ -1,6 +1,6 @@
 # 첫 빌드 검증 기록
 
-아래는 최초 빌드 기록이다. 최신 모바일 안정화 빌드는 **Godot 147개 검사, 웹 셸/스튜디오 단위 39개 검사, 브라우저 28개 검사, 기존 봇 완주 10회를 통과**했다. 제작 엔진 검증 범위는 [EPISODE_ENGINE.md](EPISODE_ENGINE.md)를 따른다. 후속 브라우저 입력·복귀·IndexedDB 복원 결과는 [BROWSER_TESTS.md](BROWSER_TESTS.md)를 따른다. 모바일 추가 결과는 [MOBILE_UX.md](MOBILE_UX.md)를 따른다. 화면 관련 결과는 [전체화면 변경 기록](FULLSCREEN.md), 이전 이동 기능 결과는 [이동과 탐색 추가 기록](TRAVERSAL_UPDATE.md)을 따른다.
+아래는 최초 빌드 기록이다. 최신 모바일 안정화 빌드는 **Godot 148개 검사, 웹 셸/스튜디오 단위 41개 검사, 브라우저 32개 검사, 기존 봇 완주 10회를 통과**했다. 제작 엔진 검증 범위는 [EPISODE_ENGINE.md](EPISODE_ENGINE.md)를 따른다. 후속 브라우저 입력·복귀·IndexedDB 복원 결과는 [BROWSER_TESTS.md](BROWSER_TESTS.md)를 따른다. 모바일 추가 결과는 [MOBILE_UX.md](MOBILE_UX.md)를 따른다. 화면 관련 결과는 [전체화면 변경 기록](FULLSCREEN.md), 이전 이동 기능 결과는 [이동과 탐색 추가 기록](TRAVERSAL_UPDATE.md)을 따른다.
 
 검증일은 2026년 11월 10일이다. 실행 엔진은 공식 Godot `4.7.2.stable.official.ed1daf0bf` macOS universal 배포본이다. 이 기록은 기술 시제품의 자동·브라우저 검증이며 출시 승인이나 사람의 플레이 테스트를 대체하지 않는다.
 

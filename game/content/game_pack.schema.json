@@ -972,7 +972,8 @@
               "method": {
                 "type": "string",
                 "enum": [
-                  "cutout_v1"
+                  "cutout_v1",
+                  "whole_v1"
                 ]
               },
               "source_key": {

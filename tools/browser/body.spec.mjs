@@ -55,7 +55,7 @@ test('a whole image replaces the player and enemy outfits and auto-generates sev
   await page.locator('.object-details summary').click(); await page.locator('[data-entity="enemy:0"]').click();
   await page.locator('#body-file').setInputFiles(await bodyFile(page, '#ba563b')); await expect(page.locator('#body-regenerate')).toBeEnabled();
   pack = await packFrom(page); const enemy = pack.chapters[0].enemies[0], enemyArt = pack.assets.find(a => a.id === enemy.sprite_key);
-  expect(enemy.sprite_key).not.toBe(hero.id); expect(enemyArt.generation.method).toBe('cutout_v1');
+  expect(enemy.sprite_key).not.toBe(hero.id); expect(enemyArt.generation.method).toBe('whole_v1');
   const { sprite_key, ...enemyGameplay } = enemy; expect(enemyGameplay).toEqual(gameplay); expect(validateEpisode(pack, schema)).toEqual([]);
   const frame = await startPreview(page); let actual = await snapshot(frame);
   expect(actual.player.sprite_key).toBe(hero.id); expect(actual.player.render_size).toEqual([48, 48]);
@@ -104,7 +104,7 @@ test.describe('compact actor authoring', () => {
     await page.locator('#body-sample').tap(); await expect(page.locator('#body-regenerate')).toBeEnabled();
     await page.locator('#actor-motion').selectOption('jump');
     const pack = await packFrom(page), enemy = pack.chapters[0].enemies.at(-1), sheet = pack.assets.find(a => a.id === enemy.sprite_key);
-    expect(sheet.generation.method).toBe('cutout_v1'); expect(Object.keys(sheet.animations)).toHaveLength(7);
+    expect(sheet.generation.method).toBe('whole_v1'); expect(Object.keys(sheet.animations)).toHaveLength(7);
     expect(pack.characters[0].sprite_key).toBe('avatar_hero'); expect(validateEpisode(pack, schema)).toEqual([]);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   });

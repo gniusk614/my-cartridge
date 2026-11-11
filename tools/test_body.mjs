@@ -5,6 +5,7 @@ import { deflateSync } from 'node:zlib';
 import { crc32 } from '../studio/zip.js';
 import { createEpisode, addScene, validateEpisode, reachableAssets, assetReferences, STATES } from '../studio/core.js';
 import { normalizeRig, DEFAULT_RIG, alphaBounds, cleanBodyBackground, rigParts, bodyPose, BODY_LENGTHS } from '../studio/body.js';
+import { spritePrompt, gridSpec } from '../studio/ai_sprites.js';
 import { actorEntries } from '../studio/actor_editor.js';
 const schema = JSON.parse(readFileSync(new URL('../schemas/game_pack.schema.json', import.meta.url)));
 
@@ -64,4 +65,15 @@ test('every scene enemy has an independent actor target without changing gamepla
   const pack = createEpisode(); addScene(pack); const before = structuredClone(pack), entries = actorEntries(pack);
   assert.equal(entries.length, 4); assert.equal(entries[3].chapterIndex, 1); assert.equal(entries[2].ref, pack.chapters[0].enemies[0]);
   assert.deepEqual(pack, before);
+});
+
+test('animal fallback metadata and AI grid contracts remain compatible with the runtime', () => {
+  const pack = bodyPack(); pack.assets[1].generation.method = 'whole_v1'; assert.deepEqual(validateEpisode(pack, schema), []);
+  assert.deepEqual(gridSpec(1024, 1792, 4), { columns: 4, rows: 7, width: 384, height: 672 });
+  for (const args of [[100, 100, 0], [100, 100, 9], [100, 100, 2.5], [10, 100, 4]]) assert.throws(() => gridSpec(...args));
+});
+test('AI prompts preserve animal anatomy, require an exact frame grid and retain character notes', () => {
+  const prompt = spritePrompt('A penguin with a red scarf'); assert.match(prompt, /A penguin with a red scarf/);
+  assert.match(prompt, /exactly 4 equal columns and 7 equal rows/); assert.match(prompt, /continuous body/); assert.match(prompt, /no margins or gaps/i);
+  assert.ok(spritePrompt('x'.repeat(9000)).length < 4000);
 });

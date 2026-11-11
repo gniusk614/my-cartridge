@@ -76,7 +76,7 @@ export function bodyPose(state, frame) {
   if (state === 'hurt') { p.shift = frame % 2 ? 2 : -2; angles.torso = -7; angles.head = 5; }
   return p;
 }
-export function fullBodySheet(image, raw = {}) {
+export function fullBodySheet(image, raw = {}, method = 'cutout_v1') {
   const prepared = prepareBody(image, raw), { canvas: body, bounds, settings } = prepared, parts = rigParts(bounds, settings);
   const canvas = document.createElement('canvas'); canvas.width = 96 * 8; canvas.height = 96 * 7;
   const ctx = canvas.getContext('2d'); ctx.imageSmoothingEnabled = false; const animations = {};
@@ -88,6 +88,17 @@ export function fullBodySheet(image, raw = {}) {
       if (pose.down) {
         ctx.translate(48, 80); ctx.rotate(Math.PI / 2); ctx.scale(0.65, 0.65); ctx.translate(-(bounds.x + bounds.width / 2), -(bounds.y + bounds.height / 2)); ctx.drawImage(body, 0, 0);
       } else {
+        if (method === 'whole_v1') {
+          // Animals and mascots stay in one piece. This is a simple fallback,
+          // while AI/external sheets supply actual anatomy-aware poses.
+          const wave = Math.sin(f / BODY_LENGTHS[row] * Math.PI * 2);
+          ctx.translate(48, 94); ctx.rotate((state === 'move' ? wave * 3 : state === 'attack' ? [0, -6, 10, 8, 2, 0][f % 6] : state === 'hurt' ? -7 : 0) * Math.PI / 180);
+          if (state === 'crouch') ctx.scale(1.04, 0.8);
+          if (state === 'jump') ctx.rotate((-4 + f * 3) * Math.PI / 180);
+          if (state === 'idle') ctx.scale(1, 1 + wave * 0.01);
+          ctx.translate(-48 + (state === 'hurt' ? pose.shift : 0), -94 + (state === 'move' ? -Math.abs(wave) * 2 : 0));
+          ctx.drawImage(body, 0, 0); ctx.restore(); continue;
+        }
         ctx.translate(48 + pose.shift, 94 + pose.bob); ctx.scale(pose.sx, pose.sy); ctx.translate(-48, -94);
         for (const part of parts) {
           const [x, y, w, h] = part.rect, [px, py] = part.pivot;

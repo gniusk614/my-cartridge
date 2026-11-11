@@ -3,7 +3,7 @@ import { convertPortrait, avatarSheet, canvasAsset } from './pixel-9233d454118c.
 import { zipFiles } from './zip-67f8ba4702ac.js';
 import { ASSET_KINDS, importAsset, assetCard } from './assets-3f1cdf618a2e.js';
 import { PROP_PRESETS, presetAsset } from './presets-b50c8dbbbb58.js';
-import { ActorEditor, actorEntries } from './actor_editor-7b3eac9e9f11.js';
+import { ActorEditor, actorEntries } from './actor_editor-de4a1da89d66.js';
 
 const $ = selector => document.querySelector(selector);
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));

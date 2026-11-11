@@ -514,6 +514,9 @@ func test_full_body_art() -> void:
 	pack.chapters[0].enemies[0].sprite_key = "body_generated"
 	expect(loader.validator.validate(pack).is_empty(), "whole body source and generated actions validate for hero and enemy")
 	expect(loader.validator.validate(JSON.parse_string(JSON.stringify(pack))).is_empty(), "numeric color enum accepts native integers and JSON numbers equally")
+	var whole: Dictionary = pack.duplicate(true)
+	whole.assets[1].generation.method = "whole_v1"
+	expect(loader.validator.validate(whole).is_empty(), "animal fallback keeps whole image without a human rig")
 	for mutation in ["source", "grid", "size", "colors", "boundaries", "version", "action"]:
 		var bad: Dictionary = pack.duplicate(true)
 		match mutation:

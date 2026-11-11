@@ -61,9 +61,9 @@ sprite_sheet에는 frame_width(8~128)·frame_height(8~128)·animations가 필요
 
 sprite_sheet에 선택 항목 `display_height`(정수 16~96)를 지정하면 셀 비율을 유지하며 그 높이로 표시한다. 생략하면 기존 셀 크기를 사용한다. 그림의 표시 크기는 이동·공격·피격 영역에 영향을 주지 않는다.
 
-선택 항목 `generation`은 `method: "cutout_v1"`, `source_key`(character_source ID), `settings`를 필수로 갖는다. 생성 시트는 768×672, frame_width/frame_height 모두 96이며 7개 동작과 display_height가 필요하다. 원본 참조가 없거나 종류가 다르면 거부한다. character_source와 생성 정보·display_height는 1.3.0 팩에서 사용한다.
+선택 항목 `generation`은 `method`(whole_v1: 전체 그림 유지, cutout_v1: 사람형 부위 분할), `source_key`(character_source ID), `settings`를 필수로 갖는다. 생성 시트는 768×672, frame_width/frame_height 모두 96이며 7개 동작과 display_height가 필요하다. 원본 참조가 없거나 종류가 다르면 거부한다. character_source와 생성 정보·display_height는 1.3.0 팩에서 사용한다.
 
-settings는 colors(0/8/16/32/64), remove_background(bool), head_cut(12~38), hip_cut(24~78), torso_width(30~80), center_x(35~65), facing(right/left)를 모두 갖는다. 비율은 정수이며 hip_cut은 head_cut보다 최소 12 커야 한다. 실제 부위 분할·7개 동작 생성 및 보관 방법은 [FULL_BODY_CHARACTERS.md](FULL_BODY_CHARACTERS.md)를 따른다. 생성 정보는 실행 코드가 아닌 재생성용 데이터다.
+settings는 colors(0/8/16/32/64), remove_background(bool), head_cut(12~38), hip_cut(24~78), torso_width(30~80), center_x(35~65), facing(right/left)를 모두 갖는다. 비율은 정수이며 hip_cut은 head_cut보다 최소 12 커야 한다. 실제 부위 분할·7개 동작 생성 및 보관 방법은 [FULL_BODY_CHARACTERS.md](FULL_BODY_CHARACTERS.md)를 따른다. 생성 정보는 실행 코드가 아닌 재생성용 데이터다. ChatGPT에서 만든 시트는 1~8열·7행을 96×96 칸으로 정리한 일반 sprite_sheet로 저장하며 로컬 부위 분할 generation 정보를 붙이지 않는다. 기본 4열 결과는 384×672다.
 
 숫자 enum은 JSON에서 읽은 실수형 값과 같은 정수형 값을 동일하게 비교한다(예: 32와 32.0). 문자열 "32"는 숫자로 취급하지 않으며 각 필드의 type 검사를 유지한다.
 

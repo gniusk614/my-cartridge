@@ -1,14 +1,14 @@
 {
   "engine": "4.7.2.stable",
-  "source_sha256": "5ab27999d74c34c4ae9a4db783028e5ddca03377212907665c3275973b39ac31",
+  "source_sha256": "665d98c4c799d5de3a0b3ff9a149fb172c408b2cce9767850969947a2af0fc41",
   "assets": {
     "index.audio.position.worklet.js": "be33985bc7160d6bf9646f259cd86b259cd67b02ccb297ee5c44f8ac84327bc8",
     "index.audio.worklet.js": "5b476a9c9ce642c0ee4256436d1bc31d9c38f868aca0f9a8e2a57c18d2dec2a3",
-    "index.html": "04ae8b5ba25c8c4d481a54c0ab99773b314b9ba33f21bfb2ec0f85d92b73822f",
+    "index.html": "51abbf4c35cf9f82b5ece671ec14c8879be8f62f46a44f00b79e698362d2123b",
     "index.js": "33c94cb3175f3333b82e2a3be5e8e86f77986f0aa2042b1631f6367a4e5bb6ba",
     "index.png": "3cb4495c0b98dfbe4b663cbf2b6836473572339beb66d902367893162a70be0e",
     "index.wasm": "fc74679e3b97f76878947fcd4fbe1268cbfa6188182a2e33bbc3f5dc9bfa57d0",
-    "game-50e0b9e8c0f2.pck": "50e0b9e8c0f242a6a66a0d9f325367b2d0a980cd95f2207f4f5d663382c0b0fc",
+    "game-2cf3e7adbe9e.pck": "2cf3e7adbe9ebf33478525f26de4d6ea9da216ef78409668836bfcf213edc56a",
     "GODOT-LICENSE.txt": "b0435e3b3e4e55238f05f4b306f30524a1b2e20147810d436eaa554fa6855c80",
     "NOTO-SANS-KR-OFL.txt": "1c05c68c34f9708415aada51f17e1b0092d2cea709bf4a94cd38114f9e73d7d9",
     "icon-180.png": "14a5d0411f8e278c7301d07744e1187c139903bc337b72a37dad6005cc0c1eca",
@@ -22,11 +22,13 @@
     "studio/zip-67f8ba4702ac.js": "67f8ba4702acf01450a9f0792fe75504e940e6bc6194a7465e14fcc2b26674e1",
     "studio/assets-3f1cdf618a2e.js": "3f1cdf618a2e9c2eb340849a41426d9d577d805e2609f805f8edd9e03f63d073",
     "studio/presets-b50c8dbbbb58.js": "b50c8dbbbb584408401f0471f4235f5b0ff3f61a701b0d988c62f6a3c779ab3d",
-    "studio/body-4a2cda0bc13d.js": "4a2cda0bc13dec905064133ee2f2956fde7f04473f063e4ffdee5316c34e0a19",
-    "studio/actor_editor-7b3eac9e9f11.js": "7b3eac9e9f11583a1988322470418d4878414621f6cc952704934aeccc71c517",
-    "studio/studio-636fc3363367.js": "636fc3363367ecd344f8795fab8f73ae7dc4262710a8e0938a90f2dab8d9bca6",
+    "studio/body-2ddf1a6d7fb9.js": "2ddf1a6d7fb908e97b566ad66e918aae18d59e428435a6b44ac1abb7b59ed1bf",
+    "studio/ai_sprites-a16a6daf525c.js": "a16a6daf525c18c8dec8276e04dea78c96a212a2023e5b2398835eab72a23841",
+    "studio/ai_editor-92f8c3094471.js": "92f8c3094471fc6404588193f96e9423e0e983bb9d8bf9160bc428a6c58ef3a0",
+    "studio/actor_editor-de4a1da89d66.js": "de4a1da89d66727e5d1e396d5633c912ff5dca6add889c9d5565fcc4660b91b8",
+    "studio/studio-3d27c013b959.js": "3d27c013b959181055be688cbdb28550c817646ed0b14ac1e2f871a1cee10f6b",
     "studio/studio-c01dad5ce25a.css": "c01dad5ce25a556057ffa146da80ecca73238e8afc73e5ac8c9985d8dec15193",
-    "studio/index.html": "81519ac2d78a83a35baf684fa4a742481e3e544b830ae8c15b872a2dce7f5cdb",
-    "studio/schema.json": "ea1d95cf51c627522ad460f5d643d5b2452f5cd75a6adec60066be7ac2a59d4d"
+    "studio/index.html": "23b1486c9ad5ead1485d72aa504f95ca902ea0ac2dc62d1618f883623a2ad0ec",
+    "studio/schema.json": "87efef7623ef665330a22f98ec0fc09f9198762d1d1362717ffc77d703bfcd01"
   }
 }
