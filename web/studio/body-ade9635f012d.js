@@ -1,5 +1,5 @@
-import { STATES } from './core-6753c5262a85.js';
-import { quantize, removeEdgeBackground } from './pixel-9233d454118c.js';
+import { STATES } from './core-e9d461d88616.js';
+import { quantize, removeEdgeBackground } from './pixel-f2ce3547589f.js';
 
 export const BODY_FRAME = 96;
 export const DEFAULT_RIG = { colors: 32, remove_background: true, head_cut: 24, hip_cut: 60, torso_width: 58, center_x: 50, facing: 'right' };

@@ -36,7 +36,7 @@ func snapshot(_arguments: Array) -> void:
 			"position": point(game.player.position), "velocity": point(game.player.velocity),
 			"hp": game.player.hp, "elevation": game.player.elevation,
 			"grounded": game.player.grounded, "attack_clock": game.player.attack_clock,
-			"attack_id": game.player.attack_id, "stun": game.player.stun,
+			"carrying_baby": game.player.get_child_count() > 2, "attack_id": game.player.attack_id, "stun": game.player.stun,
 			"facing": game.player.facing, "sprite_key": game.player.sprite_key, "render_size": point(AssetLibrary.actor_size(game.player.sprite_key)),
 		}
 		data.chapter_index = GameSession.chapter_index()
@@ -46,9 +46,11 @@ func snapshot(_arguments: Array) -> void:
 		data.props = []
 		for prop in game.stage.prop_sprites:
 			data.props.append({"id": str(prop.name), "asset_key": prop.get_meta("asset_key"), "position": point(prop.position), "size": point(prop.texture.get_size() * prop.scale), "front": prop.z_index == 2})
+		data.photo_placed = game.photo_placed.duplicate()
+		data.active_event = game.active_event.get("id", "")
 		data.clues = game.quest.available_clues()
 		data.complete = game.quest.is_complete()
 		for actor in game.actors.get_children():
 			if actor.team == "enemy" and actor.hp > 0:
-				data.enemies.append({"position": point(actor.position), "hp": actor.hp, "id": actor.actor_id, "sprite_key": actor.sprite_key, "render_size": point(AssetLibrary.actor_size(actor.sprite_key))})
+				data.enemies.append({"position": point(actor.position), "hp": actor.hp, "visual": actor.visual, "id": actor.actor_id, "sprite_key": actor.sprite_key, "render_size": point(AssetLibrary.actor_size(actor.sprite_key))})
 	JavaScriptBridge.get_interface("window").myCartridgeTestState = JSON.stringify(data)

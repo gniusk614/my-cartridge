@@ -3,6 +3,8 @@ extends Node2D
 const Actor = preload("res://scripts/actors/actor.gd")
 const Stage = preload("res://scripts/gameplay/stage.gd")
 const Quest = preload("res://scripts/gameplay/quest_manager.gd")
+const StoryEvents = preload("res://scripts/gameplay/story_events.gd")
+const PhotoBoard = preload("res://scripts/ui/photo_board.gd")
 const UI = preload("res://scripts/ui/screen_ui.gd")
 var ui
 var stage
@@ -22,6 +24,10 @@ var import_callback
 var studio_preview := false
 var episode_only := ""
 var suspend_callback
+var story_events = StoryEvents.new()
+var active_event: Dictionary = {}
+var photo_board
+var photo_placed: Array = []
 
 func _ready() -> void:
 	configure_input()
@@ -36,7 +42,7 @@ func _ready() -> void:
 	music.stream = preload("res://assets/audio/demo_ending.wav")
 	music.volume_db = -7
 	music.finished.connect(func():
-		if GameSession.state == "ENDING": music.play())
+		if GameSession.state in ["ENDING", "FAMILY_ENDING"]: music.play())
 	add_child(music)
 	EventBus.actor_defeated.connect(on_defeat)
 	if OS.has_feature("web"):
@@ -118,6 +124,7 @@ func build_stage() -> void:
 		if map.id == GameSession.chapter().get("map_id", ""): stage.configure(map)
 	add_child(stage)
 	indoors = false
+	active_event = {}
 	actors = Node2D.new()
 	actors.y_sort_enabled = true
 	stage.add_child(actors)
@@ -135,6 +142,7 @@ func build_stage() -> void:
 	player.appearance = hero.get("appearance", {})
 	player.surfaces = stage.surfaces
 	actors.add_child(player)
+	if GameSession.chapter().get("carry_baby", false): player.add_child(preload("res://scripts/actors/baby_carrier.gd").new())
 	quest = Quest.new()
 	quest.configure(GameSession.chapter(), GameSession.progress)
 	for spec in stage.map_data.get("npcs", []):
@@ -145,6 +153,7 @@ func build_stage() -> void:
 		npc.sprite_key = character.sprite_key
 		npc.appearance = character.get("appearance", {})
 		npc.position = Vector2(spec.position.x, spec.position.y)
+		npc.set_meta("follow", spec.character_id == GameSession.chapter().get("companion_id", ""))
 		npc.facing = -1
 		actors.add_child(npc)
 		npc.set_physics_process(false)
@@ -169,15 +178,21 @@ func _process(delta: float) -> void:
 		ui.clear_modal("잠깐 쉬었다 다시 가자", "찾은 기억은 그대로 남아 있어요.\n체력을 회복하고 거리 입구에서 다시 시작합니다.")
 		ui.button("다시 도전", retry)
 		return
+	update_companion(delta)
 	update_camera()
-	if not indoors: spawn_enemies()
+	if not indoors:
+		var event: Dictionary = story_events.next(GameSession.chapter(), GameSession.progress, player.position.x, quest.is_complete())
+		if not event.is_empty() and player.grounded and player.attack_clock <= 0:
+			show_story_event(event)
+			return
+		spawn_enemies()
 	stage.clue_positions = [] if indoors else quest.available_clues()
 	stage.exit_active = quest.is_complete()
 	var objective: String = quest.objective_text()
 	if indoors:
 		objective = "책상 앞에서 E · 문 앞에서 E로 나가기"
 	elif quest.is_complete():
-		objective = "오른쪽 카페 문 앞에서 E로 들어가기 →"
+		objective = "오른쪽 문 앞에서 살피기 →" if GameSession.chapter().get("exit_mode", "cafe") == "direct" else "오른쪽 카페 문 앞에서 E로 들어가기 →"
 	ui.update_hud(player.hp, objective)
 	ui.status.text = "Space 점프 · K 앉기" if not indoors and player.position.x > 255 and player.position.x < 550 else ""
 	GameSession.progress.hp = player.hp
@@ -201,10 +216,19 @@ func interact_nearby() -> void:
 				ui.button("다시 둘러보기", play)
 		return
 	if player.position.distance_to(stage.door_position) < 25:
-		enter_cafe()
+		if GameSession.chapter().get("exit_mode", "cafe") == "direct":
+			if quest.is_complete(): finish_chapter()
+			else:
+				GameSession.change_state("CLUE_REVEAL")
+				ui.clear_modal("문은 아직 닫혀 있다", "길을 열고 빛나는 기억을 모두 찾은 뒤 돌아오자.")
+				ui.button("계속하기", play)
+		else: enter_cafe()
 		return
 	for npc in stage.map_data.get("npcs", []):
-		if player.position.distance_to(Vector2(npc.position.x, npc.position.y)) < 23:
+		var at := Vector2(npc.position.x, npc.position.y)
+		for actor in actors.get_children():
+			if actor.actor_id == npc.character_id and actor.get_meta("follow", false): at = actor.position
+		if player.position.distance_to(at) < 23:
 			var character: Dictionary = GameSession.character(npc.character_id)
 			GameSession.change_state("DIALOGUE")
 			ui.clear_modal(character.name, GameSession.story_text(npc.text), character.get("portrait_key", ""))
@@ -258,6 +282,7 @@ func update_camera() -> void:
 
 func spawn_enemies() -> void:
 	for data in GameSession.chapter().enemies:
+		if data.get("event_id", "") != "" and data.event_id not in GameSession.progress.get("completed_event_ids", []): continue
 		if data.id in spawned or data.id in GameSession.progress.defeated_actor_ids: continue
 		if player.position.x < data.trigger_x: continue
 		var ready := true
@@ -267,7 +292,8 @@ func spawn_enemies() -> void:
 		var enemy = Actor.new()
 		enemy.actor_id = data.id
 		enemy.enemy_type = data.type
-		enemy.max_hp = 55 if data.type == "bruiser" else 35
+		enemy.visual = data.get("visual", "default")
+		enemy.max_hp = int(data.get("max_hp", 55 if data.type == "bruiser" else 35))
 		enemy.hp = enemy.max_hp
 		enemy.speed = 30 if data.type == "bruiser" else 45
 		enemy.position = Vector2(data.position.x, data.position.y)
@@ -291,6 +317,7 @@ func collect(id: String) -> bool:
 	for clue in GameSession.pack.clues:
 		if clue.id != id: continue
 		ui.clear_modal(clue.name, GameSession.story_text(clue.text + "\n\n" + clue.memory), GameSession.character(clue.get("speaker_id", "")).get("portrait_key", ""))
+		if clue.has("image_key"): add_photo(clue.image_key, true)
 		ui.button("기억을 간직하고 계속", play)
 	return true
 
@@ -331,7 +358,8 @@ func show_ending() -> void:
 	GameSession.progress.ending_seen = true
 	GameSession.persist()
 	EventBus.stage_completed.emit(GameSession.chapter().id)
-	ui.clear_modal("다시, 너에게", GameSession.story_text(GameSession.pack.ending.letter), GameSession.character_for_role("missing").get("portrait_key", ""))
+	ui.clear_modal("태어나줘서 고마워" if GameSession.pack.ending.has("photo_reveal") else "다시, 너에게", GameSession.story_text(GameSession.pack.ending.letter), GameSession.character_for_role("missing").get("portrait_key", ""))
+	if GameSession.pack.ending.has("photo_reveal"): ui.button("우리의 오늘", show_family_ending)
 	ui.button("기억을 다시 걸어보기", start.bind(false))
 	ui.button("팩 선택으로", show_title)
 	if DisplayServer.get_name() != "headless": music.play()
@@ -341,8 +369,10 @@ func _notification(what: int) -> void:
 		pause_game()
 
 func finish_chapter() -> void:
+	if not quest.is_complete(): return
 	if GameSession.chapter_index() + 1 >= GameSession.pack.chapters.size():
-		show_ending()
+		if GameSession.pack.ending.has("photo_reveal"): show_photo_puzzle()
+		else: show_ending()
 		return
 	GameSession.change_state("CHAPTER_CLEAR")
 	GameSession.persist()
@@ -384,3 +414,89 @@ func on_import_pack(arguments: Array) -> void:
 
 func pack_choices() -> Array:
 	return [episode_only] if not episode_only.is_empty() else PackLoader.available_packs()
+
+func show_story_event(event: Dictionary) -> void:
+	active_event = event
+	GameSession.change_state("STORY_EVENT")
+	player.reset_motion()
+	ui.clear_modal(event.title, GameSession.story_text(event.text), GameSession.character(event.get("speaker_id", "")).get("portrait_key", ""))
+	ui.button("계속 걷기", complete_story_event)
+
+func complete_story_event() -> void:
+	if active_event.is_empty() or GameSession.state != "STORY_EVENT": return
+	if active_event.id not in GameSession.progress.completed_event_ids:
+		player.hp = mini(player.max_hp, player.hp + int(active_event.heal))
+		GameSession.progress.hp = player.hp
+		GameSession.progress.completed_event_ids.append(active_event.id)
+		GameSession.persist()
+	active_event = {}
+	play()
+
+func add_photo(key: String, complete: bool, family: bool = false):
+	var board = PhotoBoard.new()
+	board.photo = AssetLibrary.texture(key)
+	if board.photo == null: board.photo = PhotoBoard.sample(family)
+	board.pieces = GameSession.pack.ending.get("photo_reveal", {}).get("clue_ids", ["photo"]).size()
+	if complete:
+		for i in board.pieces: board.placed.append(i)
+	ui.body.add_child(board)
+	return board
+
+func show_photo_puzzle() -> void:
+	if not quest.is_complete(): return
+	var reveal: Dictionary = GameSession.pack.ending.photo_reveal
+	for id in reveal.clue_ids:
+		if id not in GameSession.progress.collected_clue_ids: return
+	GameSession.change_state("PHOTO_ASSEMBLY")
+	GameSession.persist()
+	photo_placed.clear()
+	ui.clear_modal("사진 조각을 맞춰 보자", "")
+	photo_board = add_photo(reveal.get("photo_key", ""), false)
+	photo_board.custom_minimum_size.y = 84
+	var next_piece: Button = ui.button("조각 1 놓기", func(): place_photo_piece(photo_placed.size()))
+	next_piece.name = "piece_next"
+
+func place_photo_piece(index: int) -> void:
+	if GameSession.state != "PHOTO_ASSEMBLY" or index in photo_placed: return
+	if index < 0 or index >= GameSession.pack.ending.photo_reveal.clue_ids.size(): return
+	photo_placed.append(index)
+	photo_board.put_piece(index)
+	var button = ui.body.find_child("piece_next", true, false)
+	if photo_placed.size() == GameSession.pack.ending.photo_reveal.clue_ids.size():
+		if button: button.hide()
+		ui.button("사진 뒷면 보기", reveal_photo)
+	elif button: button.text = "조각 %d 놓기" % (photo_placed.size() + 1)
+
+func reveal_photo() -> void:
+	if GameSession.state != "PHOTO_ASSEMBLY" or photo_placed.size() != GameSession.pack.ending.photo_reveal.clue_ids.size(): return
+	GameSession.change_state("PHOTO_REVEAL")
+	var reveal: Dictionary = GameSession.pack.ending.photo_reveal
+	ui.clear_modal(GameSession.story_text(reveal.subject), GameSession.story_text(reveal.date + "\n\n" + reveal.reveal_text))
+	add_photo(reveal.get("photo_key", ""), true)
+	if not reveal.has("photo_key"):
+		var notice := Label.new()
+		notice.text = "샘플 일러스트 · 스튜디오에서 실제 사진으로 교체"
+		notice.add_theme_font_size_override("font_size", 8)
+		ui.body.add_child(notice)
+	ui.button("편지 읽기", show_ending)
+
+func show_family_ending() -> void:
+	GameSession.change_state("FAMILY_ENDING")
+	ui.clear_modal("우리의 오늘", GameSession.story_text("이제 우리 세 사람의 이야기가 이어집니다.\n오늘의 주인공은 {{player}}."))
+	add_photo(GameSession.pack.ending.photo_reveal.get("family_key", ""), true, true)
+	ui.button("기억을 다시 걸어보기", start.bind(false))
+	ui.button("팩 선택으로", show_title)
+
+func update_companion(delta: float) -> void:
+	if indoors: return
+	for actor in actors.get_children():
+		if not actor.get_meta("follow", false): continue
+		var wanted := Vector2(clampf(player.position.x - 36, player.arena.position.x, player.arena.end.x), clampf(player.position.y + 12, 104, 156))
+		var before: Vector2 = actor.position
+		if actor.position.distance_to(wanted) > 6: actor.position = actor.position.move_toward(wanted, delta * 92)
+		actor.velocity = (actor.position - before) / maxf(delta, 0.001)
+		actor.phase = "MOVE" if actor.velocity.length() > 0.1 else "IDLE"
+		if actor.velocity.x != 0: actor.facing = 1 if actor.velocity.x > 0 else -1
+		actor.time += delta
+		actor.elevation = player.elevation
+		actor.queue_redraw()

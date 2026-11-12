@@ -1,3 +1,4 @@
+import { eventErrors } from './events.js';
 export const STATES = ['idle', 'move', 'attack', 'jump', 'crouch', 'hurt', 'down'];
 export const clone = value => structuredClone(value);
 export const DEFAULT_APPEARANCE = { skin: '#f4cdb3', hair: '#272945', coat: '#6bb8c4', pants: '#252941', scarf: '#f6c77e', hair_style: 'short' };
@@ -24,7 +25,7 @@ export function createClue(index) {
   return { id: `scene_${index}_clue`, name: '함께 남긴 기억', text: '그날의 작은 약속을 기억하나요?', memory: '{{player}}와 {{missing}}가 함께 웃었던 순간.', asset_key: 'clue_photo', speaker_id: 'companion' };
 }
 export function createEpisode() {
-  return { schema_version: '1.3.0', pack_id: uid('episode'), pack_revision: 1,
+  return { schema_version: '1.4.0', pack_id: uid('episode'), pack_revision: 1,
     meta: { title: '우리만의 에피소드', locale: 'ko-KR', duration_minutes: 3 },
     characters: [{ id: 'hero', name: '주인공', role: 'player', sprite_key: 'hero_base', appearance: { skin: '#f4cdb3', hair: '#272945', coat: '#6bb8c4', pants: '#252941', scarf: '#f6c77e', hair_style: 'short' } },
       { id: 'companion', name: '소중한 사람', role: 'missing', sprite_key: 'missing_base', appearance: { skin: '#e8b998', hair: '#453247', coat: '#d397a9', pants: '#343449', scarf: '#e5cba1', hair_style: 'long' } }],
@@ -41,7 +42,7 @@ export function addScene(pack) {
 }
 export function upgrade(pack) {
   const result = clone(pack);
-  result.schema_version = '1.3.0'; result.assets ??= []; result.maps ??= [];
+  result.schema_version = '1.4.0'; result.assets ??= []; result.maps ??= [];
   result.chapters.forEach((chapter, i) => {
     if (!chapter.map_id) { const map = createMap(`map_${String(i + 1).padStart(2, '0')}`); result.maps.push(map); chapter.map_id = map.id; }
   });
@@ -78,10 +79,12 @@ export function assetReferences(pack, id) {
   return pack.characters.reduce((n, c) => n + Number(c.sprite_key === id) + Number(c.portrait_key === id), 0)
     + pack.maps.reduce((n, m) => n + Number(m.background_key === id) + (m.props || []).filter(p => p.asset_key === id).length, 0)
     + pack.chapters.reduce((n, c) => n + c.enemies.filter(e => e.sprite_key === id).length, 0)
-    + pack.assets.filter(a => a.generation?.source_key === id).length;
+    + pack.assets.filter(a => a.generation?.source_key === id).length
+    + pack.clues.filter(c => c.image_key === id).length + Number(pack.ending.photo_reveal?.photo_key === id) + Number(pack.ending.photo_reveal?.family_key === id);
 }
 export function reachableAssets(pack) {
   const used = new Set([...pack.characters.flatMap(c => [c.sprite_key, c.portrait_key]), ...pack.maps.flatMap(m => [m.background_key, ...(m.props || []).map(p => p.asset_key)]), ...pack.chapters.flatMap(c => c.enemies.map(e => e.sprite_key))]);
+  pack.clues.forEach(c => used.add(c.image_key)); used.add(pack.ending.photo_reveal?.photo_key); used.add(pack.ending.photo_reveal?.family_key);
   for (const asset of pack.assets) if (used.has(asset.id) && asset.generation) used.add(asset.generation.source_key);
   return used;
 }
@@ -110,8 +113,9 @@ export function validateEpisode(pack, schema) {
   }
   check(pack, schema, 'episode');
   if (errors.length) return errors;
-  if (!['1.2.0', '1.3.0'].includes(pack.schema_version) && ((pack.assets || []).some(a => a.kind === 'prop') || (pack.maps || []).some(m => m.props?.length))) errors.push('장식 에셋은 스키마 1.2.0을 사용합니다');
-  if (pack.schema_version !== '1.3.0' && (pack.assets || []).some(a => a.kind === 'character_source' || a.generation || a.display_height !== undefined)) errors.push('전신 생성 에셋은 스키마 1.3.0을 사용합니다');
+  if (!['1.2.0', '1.3.0', '1.4.0'].includes(pack.schema_version) && ((pack.assets || []).some(a => a.kind === 'prop') || (pack.maps || []).some(m => m.props?.length))) errors.push('장식 에셋은 스키마 1.2.0을 사용합니다');
+  if (!['1.3.0', '1.4.0'].includes(pack.schema_version) && (pack.assets || []).some(a => a.kind === 'character_source' || a.generation || a.display_height !== undefined)) errors.push('전신 생성 에셋은 스키마 1.3.0을 사용합니다');
+  if (pack.schema_version !== '1.4.0' && (pack.ending.photo_reveal || pack.clues.some(c => c.image_key) || (pack.assets || []).some(a => a.kind === 'story_photo') || pack.chapters.some(c => c.events !== undefined || c.exit_mode !== undefined || c.carry_baby !== undefined || c.companion_id !== undefined || c.enemies.some(e => e.event_id || e.visual || e.max_hp !== undefined)))) errors.push('이벤트·생일 반전 기능은 스키마 1.4.0을 사용합니다');
   const ids = new Set();
   const unique = id => { if (ids.has(id)) errors.push(`${id}: 중복 ID`); ids.add(id); };
   const graph = (items, key, label) => {
@@ -151,6 +155,14 @@ export function validateEpisode(pack, schema) {
   const assetRef = (id, kind, builtins = []) => { if (!builtins.includes(id) && assets.get(id)?.kind !== kind) errors.push(`${id}: ${kind} 에셋 연결 확인`); };
   pack.characters.forEach(c => { assetRef(c.sprite_key, 'sprite_sheet', ['hero_base', 'missing_base']); if (c.portrait_key) assetRef(c.portrait_key, 'portrait'); });
   pack.clues.forEach(c => { if (c.speaker_id && !pack.characters.some(p => p.id === c.speaker_id)) errors.push(`${c.id}: 화자 연결 확인`); });
+  for (const clue of pack.clues) if (clue.image_key) assetRef(clue.image_key, 'story_photo');
+  const reveal = pack.ending.photo_reveal;
+  if (reveal) {
+    if (new Set(reveal.clue_ids).size !== reveal.clue_ids.length || reveal.clue_ids.some(id => !pack.clues.some(c => c.id === id))) errors.push('엔딩 사진 조각의 기억 연결 확인');
+    for (const key of ['photo_key', 'family_key']) if (reveal[key]) assetRef(reveal[key], 'story_photo');
+    if (reveal.photo_key && pack.clues.some(c => c.image_key === reveal.photo_key)) errors.push('엔딩 반전 사진을 일반 기억 사진과 분리해 주세요');
+  }
+  errors.push(...eventErrors(pack));
   const maps = new Map((pack.maps || []).map(m => [m.id, m]));
   const point = (p, width, label) => { if (p.x > width - 24) errors.push(`${label}: 맵 경계 밖 위치`); };
   for (const map of pack.maps || []) {

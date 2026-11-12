@@ -1,5 +1,5 @@
 // Original, code-drawn starter props. PNGs are embedded in the customer's pack.
-import { canvasAsset } from './pixel-9233d454118c.js';
+import { canvasAsset } from './pixel-f2ce3547589f.js';
 export const PROP_PRESETS = [['tree', '나무'], ['bench', '벤치'], ['flowers', '화분'], ['lamp', '가로등'], ['sign', '표지판']];
 const cache = new Map();
 export function presetAsset(key) {

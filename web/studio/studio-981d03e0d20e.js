@@ -1,9 +1,11 @@
-import { STATES, THEMES, clone, uid, createEpisode, addScene, upgrade, syncCombat, putAsset, validateEpisode, clampProp, createProp, assetReferences, reachableAssets } from './core-6753c5262a85.js';
-import { convertPortrait, avatarSheet, canvasAsset } from './pixel-9233d454118c.js';
+import { StoryEditor } from './story_editor-4734692183ce.js';
+import { createBirthdayEpisode } from './birthday-be9a2b45cc88.js';
+import { STATES, THEMES, clone, uid, createEpisode, addScene, upgrade, syncCombat, putAsset, validateEpisode, clampProp, createProp, assetReferences, reachableAssets } from './core-e9d461d88616.js';
+import { convertPortrait, avatarSheet, canvasAsset } from './pixel-f2ce3547589f.js';
 import { zipFiles } from './zip-67f8ba4702ac.js';
-import { ASSET_KINDS, importAsset, assetCard } from './assets-3f1cdf618a2e.js';
-import { PROP_PRESETS, presetAsset } from './presets-b50c8dbbbb58.js';
-import { ActorEditor, actorEntries } from './actor_editor-de4a1da89d66.js';
+import { ASSET_KINDS, importAsset, assetCard } from './assets-a2e999b36f93.js';
+import { PROP_PRESETS, presetAsset } from './presets-4ec68e8dd429.js';
+import { ActorEditor, actorEntries } from './actor_editor-c195e4ea6a28.js';
 
 const $ = selector => document.querySelector(selector);
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -49,8 +51,15 @@ const bodyEditor = new ActorEditor({ getPack: () => state.pack, getTarget: actor
   beforeCommit: remember, invalidate: ids => ids.forEach(id => { images.delete(id); decoded.delete(id); }),
   onCommitted: target => { state.workshopActor = target.id; if (target.kind === 'character') state.character = target.characterIndex; if (state.tab === 'assets') state.tab = 'character'; changed(); render(); },
 });
+const storyEditor = new StoryEditor({ getPack: () => state.pack, getScene: () => state.scene, field, esc, fileImage, toast, beforeCommit: remember, onCommitted: () => { changed(); render(); } });
+async function birthdayProject() {
+  await save(); clearHistory(); state.pack = createBirthdayEpisode(); state.pack.characters.forEach(c => generateCharacter(c));
+  state.scene = state.character = 0; state.workshopActor = ''; state.selection = null; state.photo = state.converted = null; state.tab = 'story'; images.clear(); decoded.clear(); changed(); render();
+  toast('생일 반전 예제를 만들었습니다. 이름·아기 시절 사진·현재 가족 사진을 바꿔 완성하세요.');
+}
 function get(path) { return path.split('.').reduce((v, key) => v?.[key], state.pack); }
 function set(path, value) { const keys = path.split('.'); const key = keys.pop(); const object = keys.reduce((v, k) => v[k], state.pack); object[key] = value; }
+function unset(path) { const keys = path.split('.'); const key = keys.pop(); const object = keys.reduce((v, k) => v[k], state.pack); delete object[key]; }
 function toast(message) { $('#toast').textContent = message; $('#toast').hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(() => { $('#toast').hidden = true; }, 4500); }
 function field(label, path, type = 'text', options = null, hint = '') {
   const value = get(path) ?? '';
@@ -104,7 +113,7 @@ function updateValidation(show = false) {
   return errors;
 }
 function episodePanel() {
-  return `<div class="card"><h2>이야기의 기본 정보</h2>${field('에피소드 제목', 'meta.title')}
+  return `<div class="card"><h2>생일 반전 액션 에피소드</h2><p>아기를 지키며 사진 조각을 모으고, 마지막에 사진 속 아이의 정체가 드러나는 3장면 예제입니다. 현재 프로젝트는 보관하고 새 제작 원본을 만듭니다.</p><button class="primary" id="birthday-template">생일 반전 예제로 시작</button></div><div class="card"><h2>이야기의 기본 정보</h2>${field('에피소드 제목', 'meta.title')}
     <div class="grid">${field('에피소드 ID', 'pack_id', 'text', null, '영문 소문자·숫자·밑줄. 고객마다 다른 ID를 사용하세요.')}${field('개정 번호', 'pack_revision', 'number', null, '개정을 올리면 이전 개정의 진행을 새로 시작합니다.')}</div>${field('예상 플레이 시간 (분)', 'meta.duration_minutes', 'number')}</div>
     <div class="card"><div class="row spread"><h2>에피소드 구성</h2><button data-action="add-scene">＋ 장면 추가</button></div><div class="row"><div class="stat"><b>${state.pack.chapters.length}</b><span>이야기 장면</span></div><div class="stat"><b>${state.pack.characters.length}</b><span>등장인물</span></div><div class="stat"><b>${state.pack.clues.length}</b><span>기억</span></div></div><p>장면의 기억을 모두 찾고 출입구로 들어가 편지를 읽으면 다음 장면으로 이어집니다. 마지막 장면에서는 에피소드의 엔딩 편지가 열립니다.</p></div>
     <div class="card"><h2>이렇게 만들면 쉬워요</h2><div class="step"><b>1</b><div><strong>주인공과 장소를 준비하세요</strong><p>캐릭터 공방에서 외형을 만들고, 맵에서 등장 위치와 기억을 배치합니다.</p></div></div><div class="step"><b>2</b><div><strong>장면마다 이야기를 입히세요</strong><p>도입, 등장인물의 말, 기억, 마지막 편지에 고객의 사연을 담습니다.</p></div></div><div class="step"><b>3</b><div><strong>플레이하고 전달하세요</strong><p>별도 미리보기로 확인한 뒤 JSON 초안이나 실행 파일을 포함한 게임 ZIP을 내려받습니다.</p></div></div></div>`;
@@ -151,9 +160,9 @@ function legacyCharacterPanel() {
 function storyPanel() {
   const ci = state.scene;
   return `<div class="card"><h2>장면 ${ci + 1} · 도입</h2>${field('장면 제목', `chapters.${ci}.title`)}${field('도입 이야기', `chapters.${ci}.intro`, 'textarea')}<p><code>{{player}}</code>, <code>{{missing}}</code>, <code>{{캐릭터ID}}</code>는 플레이할 때 해당 인물의 이름으로 바뀝니다.</p></div>
-  ${scene().objectives.filter(g => g.type === 'collect_clue').map(g => { const i = state.pack.clues.findIndex(c => c.id === g.target); return `<div class="card"><h2>발견하는 기억</h2>${field('기억 이름', `clues.${i}.name`)}${field('발견했을 때 읽는 글', `clues.${i}.text`, 'textarea')}${field('회상 이야기', `clues.${i}.memory`, 'textarea')}${field('이야기의 화자', `clues.${i}.speaker_id`, 'select', [['', '화자 없음'], ...state.pack.characters.map(c => [c.id, c.name])])}</div>`; }).join('')}
+  ${storyEditor.photoPanel()}${storyEditor.panel()}${scene().objectives.filter(g => g.type === 'collect_clue').map(g => { const i = state.pack.clues.findIndex(c => c.id === g.target); return `<div class="card"><h2>발견하는 기억</h2>${field('기억 이름', `clues.${i}.name`)}${field('발견했을 때 읽는 글', `clues.${i}.text`, 'textarea')}${field('회상 이야기', `clues.${i}.memory`, 'textarea')}${field('이야기의 화자', `clues.${i}.speaker_id`, 'select', [['', '화자 없음'], ...state.pack.characters.map(c => [c.id, c.name])])}${storyEditor.cluePhoto(state.pack.clues[i])}</div>`; }).join('')}
   <div class="card"><h2>등장인물의 대화</h2>${map().npcs.length ? map().npcs.map((n, i) => `<h3>${esc(state.pack.characters.find(c => c.id === n.character_id)?.name)}</h3>${field('대화 내용', `maps.${mapIndex()}.npcs.${i}.text`, 'textarea')}`).join('') : '<p>맵과 장면에서 ＋ 대화 도구로 인물을 배치하면 이곳에서 대사를 편집할 수 있습니다.</p>'}</div>
-  <div class="card"><h2>에피소드의 마지막 편지</h2>${field('엔딩 편지', 'ending.letter', 'textarea')}<p>마지막 장면의 기억을 모두 모으고 실내 책상에서 살피기를 누르면 열립니다. 중간 장면은 같은 경로에서 다음 장면으로 연결됩니다.</p></div>`;
+  <div class="card"><h2>에피소드의 마지막 편지</h2>${field('엔딩 편지', 'ending.letter', 'textarea')}<p>장면의 출입구 설정에 따라 실내 책상 또는 맵의 문에서 이어집니다. 사진 반전을 켜면 사진을 완성한 뒤 편지를 읽습니다.</p></div>`;
 }
 function deliveryPanel() {
   return `<div class="card"><h2>제작에서 전달까지</h2><div class="step"><b>1</b><div><strong>검증하고 직접 플레이</strong><p>연결이 끊긴 캐릭터·이미지, 순환하는 등장 조건, 맵 밖 위치를 먼저 확인합니다. 실제 전투의 난이도와 이야기 흐름은 플레이로 확인하세요.</p></div></div><div class="step"><b>2</b><div><strong>JSON으로 제작 원본 보관</strong><p>맵·캐릭터·대사·PNG 에셋을 담은 한 파일입니다. 다시 불러와 수정하거나 게임 시작 화면의 게임팩 JSON 열기로 실행할 수 있습니다.</p></div></div><div class="step"><b>3</b><div><strong>게임 ZIP으로 전달·호스팅</strong><p>공통 게임 실행 파일과 에피소드 원본을 한 번에 묶습니다. ZIP을 풀어 HTTP 서버나 호스팅에 올리면 해당 에피소드가 자동으로 선택됩니다. 실행 파일 다운로드에는 네트워크가 필요합니다.</p></div></div><div class="actions"><button data-action="validate">지금 검증</button><button data-action="preview" class="primary">플레이</button><button data-action="export-json">JSON 저장</button><button data-action="export-game">게임 ZIP</button></div></div>
@@ -169,6 +178,8 @@ function render() {
   $('#panel').innerHTML = ({ episode: episodePanel, map: mapPanel, character: characterPanel, assets: assetsPanel, story: storyPanel, delivery: deliveryPanel })[state.tab]();
   if ($('#map-zoom')) $('#map-zoom').value = state.zoom;
   const mode = $(`[data-path="chapters.${state.scene}.mechanics"]`); if (mode) mode.value = scene().enemies.length ? 'combat' : 'story';
+  if (state.tab === 'episode') $('#birthday-template').onclick = () => birthdayProject().catch(error => toast(error.message));
+  if (state.tab === 'story') storyEditor.bind();
   if (state.tab === 'map') bindMap();
   if (state.tab === 'character') { if ($('#portrait-canvas')) drawPortrait(); bindFiles(); bodyEditor.bind().catch(error => toast(error.message)); $('#actor-workshop-target').onchange = event => { selectWorkshopActor(event.target.value); render(); }; }
   if (state.tab === 'map') bindFiles();
@@ -303,6 +314,7 @@ function applyPreset(key) {
 }
 function useAsset(id, at = null) {
   const asset = state.pack.assets.find(a => a.id === id); if (!asset) return;
+  if (asset.kind === 'story_photo') { state.tab = 'story'; render(); return toast('스토리에서 기억 사진 또는 엔딩 사진으로 연결해 주세요.'); }
   if (asset.kind === 'sprite_sheet') return bodyEditor.applySheet(id);
   if (asset.kind === 'character_source') return bodyEditor.generate(asset);
   if (asset.kind === 'portrait' && actorTarget()?.kind === 'enemy') return toast('대화 초상화는 이야기의 등장인물을 선택해 적용해 주세요.');
@@ -551,7 +563,7 @@ document.addEventListener('change', event => {
     syncCombat(scene()); state.selection = null;
   } else {
     const value = element.type === 'checkbox' ? element.checked : element.type === 'number' ? Number(element.value) : element.value;
-    if (path.endsWith('.speaker_id') && !value) delete state.pack.clues[Number(path.split('.')[1])].speaker_id;
+    if (((path.endsWith('.speaker_id') || path.endsWith('.companion_id')) && !value) || (path.endsWith('.max_hp') && element.value === '')) unset(path);
     else set(path, value);
   }
   if (/^maps\.\d+\.props\./.test(path) && state.selection?.type === 'prop') clampProp(map().props[state.selection.index], map().width);
@@ -559,7 +571,10 @@ document.addEventListener('change', event => {
   if (path === `maps.${mapIndex()}.width` && map().width >= 640 && map().width <= 1920) clampMap();
   if (/characters\.\d+\.appearance\./.test(path) && character().sprite_key === generatedId(character()) && !state.pack.assets.find(a => a.id === character().sprite_key)?.generation) generateCharacter(character());
   if (/chapters\.\d+\.enemies\.\d+\.type$/.test(path)) { syncCombat(scene()); state.selection = null; }
-  changed(); render();
+  changed();
+  // Keep the next field/click intact when a story text field loses focus.
+  // Structural selectors still rebuild their dependent controls.
+  if (state.tab !== 'story' || element.tagName === 'SELECT') render();
 });
 for (const id of ['validate', 'preview', 'export-json', 'export-game']) $(`#${id}`).addEventListener('click', () => action(id).catch(error => toast(error.message)));
 $('#add-scene').addEventListener('click', () => action('add-scene'));
@@ -587,3 +602,5 @@ try {
   if (records.length) state.pack = upgrade(records.sort((a, b) => b.updated - a.updated)[0].pack); else fresh();
 } catch { fresh(); toast('자동 저장을 사용할 수 없습니다. JSON으로 작업을 보관해 주세요.'); }
 render(); await save();
+
+if (new URL(location.href).searchParams.get('template') === 'birthday' && db) { await birthdayProject(); const url = new URL(location.href); url.searchParams.delete('template'); history.replaceState(null, '', url); }

@@ -1,8 +1,8 @@
-import { AiSheetEditor } from './ai_editor-92f8c3094471.js';
-import { STATES, uid, assetReferences, putAsset } from './core-6753c5262a85.js';
-import { canvasAsset } from './pixel-9233d454118c.js';
-import { importAsset } from './assets-3f1cdf618a2e.js';
-import { DEFAULT_RIG, MOTION_NAMES, normalizeRig, fullBodySheet, prepareBody, drawRigGuide, sampleBody, suggestRig } from './body-2ddf1a6d7fb9.js';
+import { AiSheetEditor } from './ai_editor-9a0f00f429f1.js';
+import { STATES, uid, assetReferences, putAsset } from './core-e9d461d88616.js';
+import { canvasAsset } from './pixel-f2ce3547589f.js';
+import { importAsset } from './assets-a2e999b36f93.js';
+import { DEFAULT_RIG, MOTION_NAMES, normalizeRig, fullBodySheet, prepareBody, drawRigGuide, sampleBody, suggestRig } from './body-ade9635f012d.js';
 
 export function actorEntries(pack) {
   return [...pack.characters.map((ref, i) => ({ ref, id: ref.id, name: ref.name, kind: 'character', path: `characters.${i}`, characterIndex: i })),

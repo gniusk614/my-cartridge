@@ -1,6 +1,6 @@
-# 게임팩 데이터 계약 1.3
+# 게임팩 데이터 계약 1.4
 
-정규 계약은 `schemas/game_pack.schema.json`이며 실행용 복사본은 `game/content/game_pack.schema.json`이다. 스튜디오는 같은 스키마를 받아 검증한다. 기존 1.0.0 샘플 세 개를 유지하고 기존 맞춤형 1.1.0·1.2.0도 유지하며 새 제작은 1.3.0을 사용한다. 제작 흐름은 [EPISODE_ENGINE.md](EPISODE_ENGINE.md)를 따른다.
+정규 계약은 `schemas/game_pack.schema.json`이며 실행용 복사본은 `game/content/game_pack.schema.json`이다. 스튜디오는 같은 스키마를 받아 검증한다. 기존 1.0.0 샘플 세 개를 유지하고 기존 맞춤형 1.1.0·1.2.0·1.3.0도 유지하며 새 제작은 1.4.0을 사용한다. 제작 흐름은 [EPISODE_ENGINE.md](EPISODE_ENGINE.md)를 따른다.
 
 ## 공통 원칙
 
@@ -12,7 +12,7 @@
 
 | 항목 | 제약과 의미 |
 |---|---|
-| schema_version | 기존 `1.0.0`·`1.1.0`·`1.2.0` 또는 새 맞춤형 `1.3.0` |
+| schema_version | 기존 `1.0.0`·`1.1.0`·`1.2.0`·`1.3.0` 또는 새 맞춤형 `1.4.0` |
 | pack_id | 영문 소문자로 시작하는 소문자·숫자·밑줄, 최대 64자. 고객별·에피소드별 구분 |
 | pack_revision | 1~9999. 현재는 같은 개정의 저장만 적용 |
 | characters | 2~16명. player 1명, missing(이야기의 상대) 1명, 나머지 npc |
@@ -67,6 +67,18 @@ settings는 colors(0/8/16/32/64), remove_background(bool), head_cut(12~38), hip_
 
 숫자 enum은 JSON에서 읽은 실수형 값과 같은 정수형 값을 동일하게 비교한다(예: 32와 32.0). 문자열 "32"는 숫자로 취급하지 않으며 각 필드의 type 검사를 유지한다.
 
+## 스토리 이벤트와 생일 사진 (1.4.0)
+
+chapters[].events는 최대 32개다. 각 이벤트는 전역에서 유일한 id, title(80자), text(500자), trigger, after(같은 장면의 선행 이벤트 ID 배열), heal(정수 0~40)을 갖고 speaker_id는 선택 항목이다. trigger.type은 stage_start/reach_x/enemy_defeated/clue_collected/objectives_complete다. reach_x에는 맵 안의 x가 필요하고, 특정 적/기억에는 같은 장면의 target ID가 필요하다. 불필요한 x/target과 없는 참조는 거부한다.
+
+enemies[].event_id를 지정하면 기존 trigger_x·after에 해당 이벤트 완료를 추가 요구한다. 이벤트·적·목표를 합친 도달 가능성을 검사하고, 처치 목표는 같은 유형 중 count개를 해결할 수 있는지 평가한다. 일부 적 처치 → 기억 → 이벤트 → 다음 적 등장처럼 부분 개수로 연결할 수 있다. 자기 등장을 기다리는 처치 이벤트 등 순환은 거부한다.
+
+chapters[].exit_mode는 cafe(기존 기본값)/direct(목표 완료 후 문에서 다음 장면·엔딩)다. carry_baby는 아기 안기 표현이며 기존 전투 판정을 유지한다. companion_id는 같은 맵에 NPC로 배치한 동행 인물 ID다. 동행 인물은 이동·대화만 수행한다. 적의 visual은 default/virus/shadow, max_hp는 선택 정수 10~160이다. 생략하면 기존 적 외형·체력을 유지한다.
+
+새 PNG 종류 story_photo는 전체 비율을 보존하는 기억·엔딩 사진이다. clues[].image_key로 선택 연결할 수 있다. ending.photo_reveal은 clue_ids(중복 없는 기억 ID 1~9개), subject(마지막 사진 이름), date(0~40자), reveal_text(500자)를 필수로 갖고 photo_key(아기 시절)·family_key(현재 가족)는 story_photo ID로 선택 지정한다. 사진이 없으면 샘플 일러스트다. 반전 사진과 같은 에셋을 일반 기억 image_key로 지정하면 거부한다. 스튜디오 업로드는 긴 변 최대 1024픽셀 PNG로 보관한다.
+
+해당 필드와 story_photo는 1.4.0에서 사용한다. 형식은 데이터만 포함하며 실행 코드·외부 URL을 허용하지 않는다. 제작 흐름은 [BIRTHDAY_EPISODE.md](BIRTHDAY_EPISODE.md)를 따른다.
+
 ## 저장
 
 팩별 `user://saves/{pack_id}.json`에 임시 파일을 쓰고 이름을 바꾼다. 필드는 기존 pack_id·pack_revision·stage_id·checkpoint_id·hp·collected_clue_ids·completed_objective_ids·defeated_actor_ids·ending_seen·saved_at을 유지한다. stage_id는 첫 장면뿐 아니라 팩 안의 현재 장면 ID를 허용한다.
@@ -74,3 +86,5 @@ settings는 colors(0/8/16/32/64), remove_background(bool), head_cut(12~38), hip_
 저장 ID는 팩 전체에서 허용된 ID만 남기고 중복을 제거한다. 모든 장면의 목표를 처치·수집 사실로 재계산하고, 첫 미완료 장면보다 뒤를 가리키는 저장은 첫 미완료 장면으로 복구한다. 사망 시 현재 장면 입구에서 체력을 회복하고 이미 얻은 기억·처치 사실은 유지한다. 실내 위치·공중 위치는 저장하지 않는다.
 
 개정이 다르면 저장을 적용하지 않는 기존 정책을 유지한다. 고객 팩 개정의 마이그레이션·백업과 실기기 저장 지속성은 별도 작업이다. 스튜디오 미리보기는 `user://studio_preview`, 자동 검사는 전용 폴더만 사용한다.
+
+1.4 이벤트는 선택 저장 필드 `completed_event_ids`를 추가한다. 예전 저장에 없으면 빈 배열로 읽는다. 현재 팩에 존재하는 ID만 남기고 중복을 제거한다. 이벤트는 대화를 닫을 때 회복·완료를 함께 저장하며, 도중 종료하면 완료되지 않은 대화를 다시 보여 준다. 사진 조립 중의 배치는 저장하지 않고 수집 사실을 유지한다. 편지를 읽었을 때 기존 ending_seen을 기록한다.

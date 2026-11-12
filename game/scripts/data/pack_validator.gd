@@ -9,12 +9,12 @@ func validate(data: Variant) -> Array:
 	if not errors.is_empty(): return errors
 	if data.schema_version == "1.0.0" and (data.chapters.size() != 1 or data.has("maps") or data.has("assets")):
 		errors.append("schema_version: customization requires 1.1.0")
-	if data.schema_version not in ["1.2.0", "1.3.0"]:
+	if data.schema_version not in ["1.2.0", "1.3.0", "1.4.0"]:
 		for asset in data.get("assets", []):
 			if asset.kind == "prop": errors.append("schema_version: props require 1.2.0")
 		for map in data.get("maps", []):
 			if not map.get("props", []).is_empty(): errors.append("schema_version: props require 1.2.0")
-	if data.schema_version != "1.3.0":
+	if data.schema_version not in ["1.3.0", "1.4.0"]:
 		for asset in data.get("assets", []):
 			if asset.kind == "character_source" or asset.has("generation") or asset.has("display_height"): errors.append("schema_version: whole body assets require 1.3.0")
 	var ids: Dictionary = {}
@@ -61,6 +61,7 @@ func validate(data: Variant) -> Array:
 		check_graph(objectives, "objectives", errors)
 	if collectible.size() != clues.size(): errors.append("Every clue must have a collection objective")
 	validate_customization(data, ids, errors)
+	validate_story(data, ids, errors)
 	return errors
 
 func unique(id: String, ids: Dictionary, errors: Array) -> void:
@@ -209,3 +210,98 @@ func check_point(point: Dictionary, width: int, label: String, errors: Array) ->
 func check_asset(id: String, kind: String, assets: Dictionary, errors: Array, builtins: Array = []) -> void:
 	if id in builtins: return
 	if not assets.has(id) or assets[id].kind != kind: errors.append(id + ": missing " + kind + " asset")
+
+func validate_story(data: Dictionary, ids: Dictionary, errors: Array) -> void:
+	var assets := {}
+	for asset in data.get("assets", []): assets[asset.id] = asset
+	var reveal: Dictionary = data.ending.get("photo_reveal", {})
+	var new_features := not reveal.is_empty()
+	for asset in assets.values():
+		if asset.kind == "story_photo": new_features = true
+	for clue in data.clues:
+		if clue.has("image_key"):
+			new_features = true
+			check_asset(clue.image_key, "story_photo", assets, errors)
+			if clue.image_key == reveal.get("photo_key", ""): errors.append("ending photo must not appear as a clue")
+	if not reveal.is_empty():
+		var photos: Array = []
+		for clue in data.clues: photos.append(clue.id)
+		var used: Array = []
+		for id in reveal.clue_ids:
+			if id not in photos or id in used: errors.append("invalid photo clue reference")
+			used.append(id)
+		for key in ["photo_key", "family_key"]:
+			if reveal.has(key): check_asset(reveal[key], "story_photo", assets, errors)
+	for chapter in data.chapters:
+		var events: Array = chapter.get("events", [])
+		if chapter.has("events") or chapter.has("exit_mode") or chapter.has("carry_baby") or chapter.has("companion_id"): new_features = true
+		if chapter.has("companion_id"):
+			var found := false
+			for map in data.get("maps", []):
+				if map.id != chapter.get("map_id", ""): continue
+				for npc in map.npcs:
+					if npc.character_id == chapter.companion_id: found = true
+			if not found: errors.append(chapter.id + ": companion must be placed as NPC")
+		var event_ids: Array = []
+		for event in events:
+			unique(event.id, ids, errors)
+			event_ids.append(event.id)
+		var graph := {}
+		var thresholds := {}
+		var width := 960.0
+		for map in data.get("maps", []):
+			if map.id == chapter.get("map_id", ""): width = map.width
+		for event in events:
+			var deps: Array = event.after.duplicate()
+			for id in event.after:
+				if id not in event_ids: errors.append(event.id + ": missing prior event")
+			var t: Dictionary = event.trigger
+			if t.type == "reach_x":
+				if not t.has("x") or t.get("x", 0) > width - 24: errors.append(event.id + ": event position outside map")
+			elif t.has("x"): errors.append(event.id + ": unexpected event x")
+			if t.type == "enemy_defeated":
+				var found := false
+				for enemy in chapter.enemies:
+					if enemy.id == t.get("target", ""): found = true
+				if not found: errors.append(event.id + ": invalid enemy trigger")
+				deps.append(t.get("target", ""))
+			elif t.type == "clue_collected":
+				var found := false
+				for goal in chapter.objectives:
+					if goal.type == "collect_clue" and goal.target == t.get("target", ""):
+						found = true
+						deps.append(goal.id)
+				if not found: errors.append(event.id + ": invalid clue trigger")
+			elif t.has("target"): errors.append(event.id + ": unexpected event target")
+			if t.type == "objectives_complete":
+				for goal in chapter.objectives: deps.append(goal.id)
+			if event.has("speaker_id"):
+				var found := false
+				for c in data.characters:
+					if c.id == event.speaker_id: found = true
+				if not found: errors.append(event.id + ": invalid event speaker")
+			graph[event.id] = deps
+		for enemy in chapter.enemies:
+			var deps: Array = enemy.after.duplicate()
+			if enemy.has("event_id"):
+				new_features = true
+				if enemy.event_id not in event_ids: errors.append(enemy.id + ": missing spawn event")
+				deps.append(enemy.event_id)
+			if enemy.has("visual") or enemy.has("max_hp"): new_features = true
+			graph[enemy.id] = deps
+		for goal in chapter.objectives:
+			var deps: Array = goal.depends_on.duplicate()
+			if goal.type == "defeat_count":
+				thresholds[goal.id] = goal.count
+				for enemy in chapter.enemies:
+					if enemy.type == goal.target: deps.append(enemy.id)
+			graph[goal.id] = deps
+		var reachable: Array = []
+		for _pass in graph.size():
+			for id in graph:
+				var count := 0
+				for dep in graph[id]:
+					if dep in reachable: count += 1
+				if count >= int(thresholds.get(id, graph[id].size())) and id not in reachable: reachable.append(id)
+		if reachable.size() != graph.size(): errors.append("events and spawn conditions: cyclic or unreachable dependency")
+	if new_features and data.schema_version != "1.4.0": errors.append("story events and photo reveal require 1.4.0")

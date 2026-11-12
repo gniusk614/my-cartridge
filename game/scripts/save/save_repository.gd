@@ -49,6 +49,14 @@ func load_save(pack: Dictionary) -> Dictionary:
 		for id in raw[key]:
 			if id in allowed and id not in clean: clean.append(id)
 		raw[key] = clean
+	var allowed_events: Array = []
+	for chapter in pack.chapters:
+		for event in chapter.get("events", []): allowed_events.append(event.id)
+	var clean_events: Array = []
+	if raw.get("completed_event_ids", []) is Array:
+		for id in raw.get("completed_event_ids", []):
+			if id in allowed_events and id not in clean_events: clean_events.append(id)
+	raw.completed_event_ids = clean_events
 	if not raw.get("hp") is float and not raw.get("hp") is int:
 		return {}
 	if not raw.get("ending_seen") is bool:

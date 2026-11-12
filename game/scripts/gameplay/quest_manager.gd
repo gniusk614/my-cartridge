@@ -65,6 +65,9 @@ func objective_text() -> String:
 			var count := 0
 			for enemy in chapter.enemies:
 				if enemy.type == goal.target and enemy.id in progress.defeated_actor_ids: count += 1
-			return "길을 막은 장난꾸러기  %d / %d" % [count, goal.count]
+			var label := "길을 막은 장난꾸러기"
+			if chapter.get("carry_baby", false):
+				label = "문을 지키는 그림자" if goal.target == "bruiser" else "길을 막은 바이러스"
+			return "%s  %d / %d" % [label, count, goal.count]
 		if dependencies_met(goal): return "빛나는 기억 가까이에서 E / 기억 버튼"
 	return "기억을 찾았다! 오른쪽 카페로 →"

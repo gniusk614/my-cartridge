@@ -87,7 +87,7 @@ test('decoration kind, bounds, duplicate IDs and version are checked before play
 });
 test('1.1 drafts acquire an empty prop collection while retaining story and saves', () => {
   const old = createEpisode(); old.schema_version = '1.1.0'; delete old.maps[0].props;
-  const next = upgrade(old); assert.equal(next.schema_version, '1.3.0'); assert.deepEqual(next.maps[0].props, []);
+  const next = upgrade(old); assert.equal(next.schema_version, '1.4.0'); assert.deepEqual(next.maps[0].props, []);
   assert.equal(next.pack_id, old.pack_id); assert.equal(next.pack_revision, old.pack_revision); assert.deepEqual(next.clues, old.clues);
 });
 

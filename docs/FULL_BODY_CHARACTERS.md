@@ -36,6 +36,6 @@ AI 재그림이나 해부학적 자세 추론은 아니다. 가려진 팔·다�
 
 ## 호환성과 검증
 
-새 제작 팩은 1.3.0이며 1.0.0·1.1.0·1.2.0도 계속 읽는다. 로컬 생성 방식은 `whole_v1` 또는 `cutout_v1`이고 생성 정보는 sprite_sheet의 `generation`, 표시 높이는 `display_height`, 보관 원본 종류는 `character_source`다. 계약은 [DATA_CONTRACT.md](DATA_CONTRACT.md)를 따른다.
+새 제작 팩은 1.4.0이며 1.0.0·1.1.0·1.2.0·1.3.0도 계속 읽는다. 로컬 생성 방식은 `whole_v1` 또는 `cutout_v1`이고 생성 정보는 sprite_sheet의 `generation`, 표시 높이는 `display_height`, 보관 원본 종류는 `character_source`다. 계약은 [DATA_CONTRACT.md](DATA_CONTRACT.md)를 따른다.
 
 단위 검사에서 실루엣 누락·동작 차이·팔레트·배경 처리·원본 참조·잘못된 생성 정보를 검사한다. Chromium·WebKit에서 서로 다른 플레이어/적 복장과 신발 픽셀, 실제 게임 적용, 공유 시트 재생성·실행 취소·재불러오기, 좁은 터치 화면의 적 추가·자동 생성을 확인한다. 기존 조이스틱·멀티터치·전투·저장·고객 ZIP 검사도 유지한다. 실제 고객 이미지별 동작 품질은 제작자가 미리보기에서 확인한다.

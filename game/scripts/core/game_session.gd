@@ -18,6 +18,7 @@ func begin(data: Dictionary, resume: bool = true) -> void:
 			"collected_clue_ids": [], "completed_objective_ids": [],
 			"defeated_actor_ids": [], "ending_seen": false, "saved_at": ""}
 
+	if not progress.has("completed_event_ids"): progress.completed_event_ids = []
 	AssetLibrary.configure(pack)
 	# Recompute completion from facts, including earlier scenes in an episode.
 	progress.completed_objective_ids = []

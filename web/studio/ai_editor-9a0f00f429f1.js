@@ -1,8 +1,8 @@
-import { STATES, uid } from './core-6753c5262a85.js';
-import { importAsset } from './assets-3f1cdf618a2e.js';
-import { canvasAsset } from './pixel-9233d454118c.js';
-import { MOTION_NAMES } from './body-2ddf1a6d7fb9.js';
-import { spritePrompt, normalizeSpriteGrid } from './ai_sprites-a16a6daf525c.js';
+import { STATES, uid } from './core-e9d461d88616.js';
+import { importAsset } from './assets-a2e999b36f93.js';
+import { canvasAsset } from './pixel-f2ce3547589f.js';
+import { MOTION_NAMES } from './body-ade9635f012d.js';
+import { spritePrompt, normalizeSpriteGrid } from './ai_sprites-0d8f91f7689e.js';
 
 export class AiSheetEditor {
   constructor(actor) { this.actor = actor; this.references = new WeakMap(); this.pending = null; this.sequence = 0; }

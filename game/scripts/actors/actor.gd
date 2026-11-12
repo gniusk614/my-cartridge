@@ -6,6 +6,7 @@ var sprite_key := ""
 var appearance: Dictionary = {}
 var actor_id := ""
 var enemy_type := "street_thug"
+var visual := "default"
 var hp := 35
 var max_hp := 35
 var speed := 45.0
@@ -185,6 +186,9 @@ func start_attack() -> void:
 	hits.clear()
 	windup = 0.08 if team == "player" else 0.40
 	attack_length = 0.32 if team == "player" else 0.66
+	if team == "enemy" and visual == "shadow":
+		windup = 0.65
+		attack_length = 0.95
 	cooldown = 0.9
 
 func receive_hit(damage: int, direction: int) -> bool:
@@ -200,6 +204,9 @@ func receive_hit(damage: int, direction: int) -> bool:
 
 func _draw() -> void:
 	draw_ellipse_shadow()
+	if team == "enemy" and visual != "default" and sprite_key.is_empty():
+		draw_creature()
+		return
 	if not sprite_key.is_empty():
 		var animation := "idle"
 		if hp <= 0: animation = "down"
@@ -238,6 +245,32 @@ func _draw() -> void:
 	if team == "enemy":
 		draw_rect(Rect2(-10, -41, 20, 2), Color("34354e"))
 		draw_rect(Rect2(-10, -41, 20.0 * hp / max_hp, 2), Color("f2949a"))
+
+func draw_creature() -> void:
+	var boss := visual == "shadow"
+	var center := Vector2(0, -23 if boss else -14)
+	var radius := 16.0 if boss else 10.0
+	var color := Color("59476f") if boss else Color("78b9a3")
+	if hp <= 0:
+		draw_rect(Rect2(-10, -5, 20, 3), color.darkened(0.3))
+		return
+	if stun > 0: color = Color("f2b7a9")
+	var wobble := sin(time * 7) * 1.2
+	for i in (7 if boss else 8):
+		var angle := i * TAU / (7 if boss else 8) + sin(time * 2) * 0.1
+		var tip := center + Vector2.from_angle(angle) * (radius + 5 + wobble)
+		draw_line(center + Vector2.from_angle(angle) * (radius - 2), tip, color, 4 if boss else 3)
+		draw_circle(tip, 2, color.lightened(0.1))
+	draw_circle(center, radius + wobble * 0.3, color)
+	for x in [-5, 5]:
+		draw_rect(Rect2(center + Vector2(x - 1, -3), Vector2(3, 4)), Color("fff0c7"))
+	if attack_clock > 0 and attack_clock < windup:
+		draw_rect(Rect2(Vector2(facing * 14 - 14, -27), Vector2(28, 27)), Color(1, 0.5, 0.4, 0.25))
+		draw_arc(center, radius + 4, -PI / 2, -PI / 2 + TAU * attack_clock / windup, 24, Color("ffe4a0"), 2)
+	elif attack_clock > 0:
+		draw_arc(Vector2(facing * 14, -14), 12, -1.4, 1.4, 8, Color("ffe4a0"), 3)
+	draw_rect(Rect2(-13, center.y - radius - 9, 26, 3), Color("34354e"))
+	draw_rect(Rect2(-13, center.y - radius - 9, 26.0 * hp / max_hp, 3), Color("e9a398"))
 
 func draw_ellipse_shadow() -> void:
 	draw_set_transform(Vector2(0, -roundf(shadow_height)), 0, Vector2(1, 0.3))

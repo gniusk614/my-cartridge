@@ -1,5 +1,5 @@
-import { STATES } from './core-6753c5262a85.js';
-import { MOTION_NAMES, alphaBounds, cleanBodyBackground } from './body-2ddf1a6d7fb9.js';
+import { STATES } from './core-e9d461d88616.js';
+import { MOTION_NAMES, alphaBounds, cleanBodyBackground } from './body-ade9635f012d.js';
 
 export function spritePrompt(description = '') {
   return `Create a production sprite sheet using the attached character as the identity reference.

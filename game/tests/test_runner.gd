@@ -300,6 +300,7 @@ func run() -> void:
 	game.ui.apply_layout()
 	await test_custom_episode()
 	await test_full_body_art()
+	await test_birthday_events()
 	print("RESULT: %d checks, %d failures" % [checks, failures])
 	game.free()
 	await process_frame
@@ -542,4 +543,87 @@ func test_full_body_art() -> void:
 		if actor.team == "enemy": enemy = actor
 	expect(enemy != null and enemy.sprite_key == "body_generated", "enemy uses complete generated image")
 	expect(game.player.speed == 80 and enemy.max_hp == 35 and game.player.hurtbox.get_child(0).shape.size == Vector2(14, 14), "art size leaves speed HP and combat hurtbox unchanged")
+	await process_frame
+
+func test_birthday_events() -> void:
+	var pack: Dictionary = JSON.parse_string(FileAccess.get_file_as_string("res://content/birthday_journey_template.json"))
+	pack.pack_id = "test_birthday_events"
+	expect(loader.validator.validate(pack).is_empty(), "birthday template validates all three scenes and six clues")
+	for mutation in ["cycle", "gate", "position", "speaker", "version", "photo", "duplicate", "self_block"]:
+		var bad: Dictionary = pack.duplicate(true)
+		match mutation:
+			"cycle": bad.chapters[0].events[0].after = [bad.chapters[0].events[0].id]
+			"gate": bad.chapters[0].enemies[1].event_id = "missing_event"
+			"position": bad.chapters[0].events[0].trigger.x = 900
+			"speaker": bad.chapters[0].events[0].speaker_id = "missing_person"
+			"version": bad.schema_version = "1.3.0"
+			"photo": bad.ending.photo_reveal.clue_ids[0] = "missing_photo"
+			"duplicate": bad.chapters[0].events[0].id = "hero"
+			"self_block": bad.chapters[0].events[0].trigger = {"type": "enemy_defeated", "target": bad.chapters[0].enemies[1].id}
+		expect(not loader.validator.validate(bad).is_empty(), "reject story " + mutation)
+	var partial: Dictionary = pack.duplicate(true)
+	partial.chapters[0].events[0].trigger = {"type": "clue_collected", "target": pack.clues[0].id}
+	expect(loader.validator.validate(partial).is_empty(), "partial defeat goal unlocks event before later gated enemy")
+	expect(loader.register_pack(pack).is_empty(), "birthday episode registers as data")
+	game.selected = loader.available_packs().find(pack.pack_id)
+	game.start(false)
+	game.play()
+	await process_frame
+	expect(game.player.get_child_count() == 3, "birthday player carries baby alongside unchanged hitboxes")
+	var rule = load("res://scripts/gameplay/story_events.gd").new()
+	expect(rule.next(session.chapter(), session.progress, 60, false).is_empty(), "arrival event waits for actual location")
+	var partner = game.actors.get_children().filter(func(a): return a.actor_id == "companion")[0]
+	game.player.position.x = 380
+	var before_distance: float = partner.position.distance_to(game.player.position)
+	game.update_companion(0.5)
+	expect(partner.position.distance_to(game.player.position) < before_distance and partner.hurtbox.collision_layer == 0, "husband follows without entering combat hit detection")
+	game._process(0.01)
+	expect(session.state == "STORY_EVENT" and session.progress.completed_event_ids.is_empty(), "dialogue does not commit before acknowledgement")
+	game.quest.record_defeat(pack.chapters[0].enemies[0].id)
+	game.spawn_enemies()
+	expect(not game.spawned.has(pack.chapters[0].enemies[1].id), "enemy waits for its arrival dialogue to finish")
+	game.complete_story_event()
+	expect(session.progress.completed_event_ids.has(pack.chapters[0].events[0].id), "event committed after acknowledgement")
+	game.spawn_enemies()
+	expect(game.spawned.has(pack.chapters[0].enemies[1].id), "completed arrival event releases later enemy")
+	var warm: Dictionary = pack.chapters[0].events[1]
+	game.player.hp = 50
+	game.show_story_event(warm)
+	game.complete_story_event()
+	game.complete_story_event()
+	expect(game.player.hp == 68, "event healing is applied once")
+	session.begin(pack, true)
+	expect(session.progress.completed_event_ids.size() == 2, "completed story events survive save and reload")
+	var raw: Dictionary = session.progress.duplicate(true)
+	raw.completed_event_ids = [warm.id, warm.id, "unknown_event"]
+	session.storage.write_save(raw)
+	var clean: Dictionary = session.storage.load_save(pack)
+	expect(clean.completed_event_ids == [warm.id], "saved event IDs are sanitized and deduplicated")
+	# Verify the entire ending sequence from derived completion facts, with no
+	# private image or birthday text shown during collection.
+	for chapter in pack.chapters:
+		for enemy in chapter.enemies:
+			if enemy.id not in session.progress.defeated_actor_ids: session.progress.defeated_actor_ids.append(enemy.id)
+	for clue in pack.clues:
+		if clue.id not in session.progress.collected_clue_ids: session.progress.collected_clue_ids.append(clue.id)
+	session.progress.stage_id = pack.chapters[2].id
+	session.persist()
+	game.start(true)
+	game.play()
+	game.finish_chapter()
+	expect(session.state == "PHOTO_ASSEMBLY" and not session.progress.ending_seen, "last door starts photo assembly before ending")
+	game.place_photo_piece(-1)
+	game.place_photo_piece(99)
+	expect(game.photo_board.placed.is_empty(), "photo starts completely covered")
+	game.reveal_photo()
+	expect(session.state == "PHOTO_ASSEMBLY", "photo identity stays gated until every piece is placed")
+	for i in 6: game.place_photo_piece(i)
+	game.place_photo_piece(0)
+	expect(game.photo_placed.size() == 6, "six photo pieces are placed without duplicates")
+	game.reveal_photo()
+	expect(session.state == "PHOTO_REVEAL" and not session.progress.ending_seen, "photo reveal precedes the letter")
+	game.show_ending()
+	expect(session.state == "ENDING" and session.progress.ending_seen, "letter completes the birthday episode and persists ending")
+	game.show_family_ending()
+	expect(session.state == "FAMILY_ENDING", "current family photo follows birthday letter")
 	await process_frame

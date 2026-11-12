@@ -27,6 +27,8 @@ func _ready() -> void:
 	hud.position = Vector2(8, 5)
 	hud.size = Vector2(244, 30)
 	hud.add_theme_font_size_override("font_size", 9)
+	hud.add_theme_color_override("font_outline_color", Color("17263d"))
+	hud.add_theme_constant_override("outline_size", 1)
 	base.add_child(hud)
 	hp = ColorRect.new()
 	hp.position = Vector2(8, 33)
@@ -158,6 +160,6 @@ func close_modal() -> void:
 	touches.show()
 
 func update_hud(player_hp: int, objective: String) -> void:
-	hud.text = "%s    기억 %d / %d\n%s" % [GameSession.pack.meta.title,
+	hud.text = "%s    %s %d / %d\n%s" % [GameSession.pack.meta.title, "사진 조각" if GameSession.pack.ending.has("photo_reveal") else "기억",
 		GameSession.progress.collected_clue_ids.size(), GameSession.pack.clues.size(), objective]
 	hp_fill.size.x = 60.0 * player_hp / 100.0
